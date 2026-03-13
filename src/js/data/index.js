@@ -27,6 +27,21 @@ async function saveJSON(key, data) {
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
 }
 
+// ── Meal Plans ────────────────────────────────────────────
+
+export let mealPlans = [];
+
+export async function loadMealPlans() {
+  const data = await fetchJSON('meal-plans.json');
+  mealPlans = data || [];
+  return mealPlans;
+}
+
+export async function saveMealPlans(updated) {
+  await saveJSON('meal-plans.json', updated);
+  mealPlans = updated;
+}
+
 // ── Recipes ───────────────────────────────────────────────
 
 export let recipes = [];

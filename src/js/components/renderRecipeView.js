@@ -2,7 +2,7 @@ import { btn } from '../ui/elements.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipes } from './renderRecipes.js';
 
-export function renderRecipeView(recipe) {
+export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
   container.innerHTML = '';
 
@@ -10,8 +10,8 @@ export function renderRecipeView(recipe) {
   const header = document.createElement('div');
   header.className = 'flex items-center gap-3 mb-6';
 
-  const backBtn = btn('← Recipes', 'ghost');
-  backBtn.onclick = renderRecipes;
+  const backBtn = btn('← Back', 'ghost');
+  backBtn.onclick = onBack || renderRecipes;
 
   const editBtn = btn('Edit', 'secondary');
   editBtn.onclick = () => renderRecipeForm(recipe, () => renderRecipeView(recipe));

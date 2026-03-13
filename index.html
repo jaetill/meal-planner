@@ -15,13 +15,22 @@
     <button id="sign-out-btn" class="btn btn-ghost text-xs">Sign out</button>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-2xl mx-auto px-4 py-6 pb-24">
     <div id="app-content">
       <p class="text-gray-400 text-sm text-center py-12">Loading…</p>
     </div>
   </main>
 
-  <div id="toast-container" class="fixed bottom-4 right-4 flex flex-col gap-2 z-50"></div>
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 flex z-30">
+    <button id="nav-recipes" type="button" class="flex-1 flex flex-col items-center py-2 text-xs font-medium text-green-600 gap-0.5">
+      <span class="text-lg">📋</span> Recipes
+    </button>
+    <button id="nav-mealplan" type="button" class="flex-1 flex flex-col items-center py-2 text-xs font-medium text-gray-400 gap-0.5">
+      <span class="text-lg">📅</span> Meal Plan
+    </button>
+  </nav>
+
+  <div id="toast-container" class="fixed bottom-20 right-4 flex flex-col gap-2 z-50"></div>
 
 </body>
 </html>
