@@ -13,11 +13,18 @@ document.getElementById('sign-out-btn').addEventListener('click', async () => {
 async function init() {
   try {
     await Auth.currentAuthenticatedUser();
-    await loadRecipes();
-    renderRecipes();
-  } catch (err) {
+  } catch {
     window.location.href = 'login.html';
+    return;
   }
+
+  try {
+    await loadRecipes();
+  } catch (err) {
+    console.warn('[App] Could not load recipes:', err);
+  }
+
+  renderRecipes();
 }
 
 window.addEventListener('DOMContentLoaded', init);
