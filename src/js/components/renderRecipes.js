@@ -2,6 +2,7 @@ import { recipes, saveRecipes, newRecipe } from '../data/index.js';
 import { btn } from '../ui/elements.js';
 import { toastSuccess, toastError } from '../ui/toast.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
+import { renderRecipeView } from './renderRecipeView.js';
 
 export function renderRecipes() {
   const container = document.getElementById('app-content');
@@ -54,7 +55,7 @@ export function renderRecipes() {
     sorted.forEach(recipe => {
       const card = document.createElement('div');
       card.className = 'card flex items-center gap-3 cursor-pointer hover:border-green-200 transition-colors';
-      card.onclick = () => renderRecipeForm(recipe, renderRecipes);
+      card.onclick = () => renderRecipeView(recipe);
 
       if (recipe.photo) {
         const img = document.createElement('img');
