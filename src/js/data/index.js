@@ -1,7 +1,7 @@
 import { Auth } from 'aws-amplify';
 
 const BUCKET    = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
-const LAMBDA_URL = ''; // TODO: set after Lambda is deployed
+const LAMBDA_URL = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
 
 // ── Read (public S3) ──────────────────────────────────────
 
