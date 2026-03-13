@@ -156,7 +156,7 @@ export function renderMealPlan() {
 
 function showPicker(dateKey, onSave) {
   const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center';
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
 
   const sheet = document.createElement('div');
   sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[80vh] flex flex-col';
