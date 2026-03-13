@@ -98,14 +98,18 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
   function renderIngredients() {
     ingList.innerHTML = '';
     recipe.ingredients.forEach((ing, i) => {
-      const row = document.createElement('div');
-      row.className = 'flex gap-2 items-start';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'space-y-1 pb-1';
+
+      // Row 1: qty | unit | name | delete
+      const row1 = document.createElement('div');
+      row1.className = 'flex gap-2 items-center';
 
       const qtyInput = document.createElement('input');
       qtyInput.type = 'text';
       qtyInput.value = ing.quantity;
       qtyInput.placeholder = 'Qty';
-      qtyInput.className = 'field w-16 shrink-0';
+      qtyInput.className = 'field w-14 shrink-0';
       qtyInput.oninput = e => { ing.quantity = e.target.value; };
 
       const unitSel = document.createElement('select');
@@ -123,22 +127,8 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       nameInput.type = 'text';
       nameInput.value = ing.name;
       nameInput.placeholder = 'Ingredient name';
-      nameInput.className = 'field flex-1';
+      nameInput.className = 'field flex-1 min-w-0';
       nameInput.oninput = e => { ing.name = e.target.value; };
-
-      const prepInput = document.createElement('input');
-      prepInput.type = 'text';
-      prepInput.value = ing.preparation;
-      prepInput.placeholder = 'Prep (e.g. chopped)';
-      prepInput.className = 'field w-28 shrink-0';
-      prepInput.oninput = e => { ing.preparation = e.target.value; };
-
-      const pkgInput = document.createElement('input');
-      pkgInput.type = 'text';
-      pkgInput.value = ing.packageSize;
-      pkgInput.placeholder = 'Pkg size (e.g. 14.5 oz can)';
-      pkgInput.className = 'field w-36 shrink-0';
-      pkgInput.oninput = e => { ing.packageSize = e.target.value; };
 
       const delBtn = btn('×', 'ghost');
       delBtn.className += ' shrink-0 text-gray-400';
@@ -147,13 +137,35 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
         renderIngredients();
       };
 
-      row.appendChild(qtyInput);
-      row.appendChild(unitSel);
-      row.appendChild(nameInput);
-      row.appendChild(prepInput);
-      row.appendChild(pkgInput);
-      row.appendChild(delBtn);
-      ingList.appendChild(row);
+      row1.appendChild(qtyInput);
+      row1.appendChild(unitSel);
+      row1.appendChild(nameInput);
+      row1.appendChild(delBtn);
+
+      // Row 2: prep | pkg size
+      const row2 = document.createElement('div');
+      row2.className = 'flex gap-2 pl-1';
+
+      const prepInput = document.createElement('input');
+      prepInput.type = 'text';
+      prepInput.value = ing.preparation;
+      prepInput.placeholder = 'Preparation (e.g. chopped)';
+      prepInput.className = 'field flex-1 text-sm';
+      prepInput.oninput = e => { ing.preparation = e.target.value; };
+
+      const pkgInput = document.createElement('input');
+      pkgInput.type = 'text';
+      pkgInput.value = ing.packageSize;
+      pkgInput.placeholder = 'Pkg size (e.g. 14.5 oz)';
+      pkgInput.className = 'field flex-1 text-sm';
+      pkgInput.oninput = e => { ing.packageSize = e.target.value; };
+
+      row2.appendChild(prepInput);
+      row2.appendChild(pkgInput);
+
+      wrapper.appendChild(row1);
+      wrapper.appendChild(row2);
+      ingList.appendChild(wrapper);
     });
   }
 
