@@ -81,6 +81,7 @@ export function newIngredient(overrides = {}) {
     quantity:    '',
     unit:        '',
     name:        '',
+    preparation: '',
     packageSize: '',
     calories:    null,
     protein:     null,

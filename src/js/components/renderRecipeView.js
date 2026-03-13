@@ -93,7 +93,8 @@ export function renderRecipeView(recipe) {
       dot.textContent = '•';
 
       const text = document.createElement('span');
-      const parts = [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ');
+      const ingName = ing.preparation ? `${ing.name}, ${ing.preparation}` : ing.name;
+      const parts = [ing.quantity, ing.unit, ingName].filter(Boolean).join(' ');
       text.textContent = ing.packageSize ? `${parts} (${ing.packageSize})` : parts;
 
       li.appendChild(dot);

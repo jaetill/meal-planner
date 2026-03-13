@@ -126,6 +126,13 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       nameInput.className = 'field flex-1';
       nameInput.oninput = e => { ing.name = e.target.value; };
 
+      const prepInput = document.createElement('input');
+      prepInput.type = 'text';
+      prepInput.value = ing.preparation;
+      prepInput.placeholder = 'Prep (e.g. chopped)';
+      prepInput.className = 'field w-28 shrink-0';
+      prepInput.oninput = e => { ing.preparation = e.target.value; };
+
       const pkgInput = document.createElement('input');
       pkgInput.type = 'text';
       pkgInput.value = ing.packageSize;
@@ -143,6 +150,7 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       row.appendChild(qtyInput);
       row.appendChild(unitSel);
       row.appendChild(nameInput);
+      row.appendChild(prepInput);
       row.appendChild(pkgInput);
       row.appendChild(delBtn);
       ingList.appendChild(row);
