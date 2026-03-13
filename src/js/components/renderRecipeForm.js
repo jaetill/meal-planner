@@ -99,7 +99,7 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
     ingList.innerHTML = '';
     recipe.ingredients.forEach((ing, i) => {
       const wrapper = document.createElement('div');
-      wrapper.className = 'space-y-1 pb-1';
+      wrapper.className = 'space-y-1 pb-3 border-b border-gray-100';
 
       // Row 1: qty | unit | name | delete
       const row1 = document.createElement('div');
