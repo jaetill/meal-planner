@@ -1,7 +1,8 @@
 import { Auth } from 'aws-amplify';
 
 const BUCKET    = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
-const LAMBDA_URL = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
+const LAMBDA_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
+const IMPORT_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
 
 // ── Read (public S3) ──────────────────────────────────────
 
@@ -39,6 +40,22 @@ export async function loadRecipes() {
 export async function saveRecipes(updated) {
   await saveJSON('recipes.json', updated);
   recipes = updated;
+}
+
+export async function importRecipeFromUrl(url) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(IMPORT_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Import failed: ${res.status}`);
+  }
+  const { recipe } = await res.json();
+  return recipe;
 }
 
 export function newRecipe(overrides = {}) {

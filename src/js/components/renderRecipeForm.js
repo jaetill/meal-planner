@@ -10,8 +10,8 @@ const UNITS = [
 const COMMON_TAGS = ['freezer meal', 'quick', 'crockpot', 'instant pot', 'grilling',
                      'vegetarian', 'vegan', 'gluten-free', 'dairy-free', 'kid-friendly'];
 
-export function renderRecipeForm(existingRecipe, onDone) {
-  const isNew  = !existingRecipe;
+export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
+  const isNew  = !existingRecipe || isImport;
   const recipe = existingRecipe
     ? JSON.parse(JSON.stringify(existingRecipe)) // work on a copy
     : newRecipe();

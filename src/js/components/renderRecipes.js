@@ -1,6 +1,6 @@
-import { recipes, saveRecipes, newRecipe } from '../data/index.js';
+import { recipes, saveRecipes, newRecipe, importRecipeFromUrl } from '../data/index.js';
 import { btn } from '../ui/elements.js';
-import { toastSuccess, toastError } from '../ui/toast.js';
+import { toastSuccess, toastError, toastInfo } from '../ui/toast.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipeView } from './renderRecipeView.js';
 
@@ -19,9 +19,64 @@ export function renderRecipes() {
   const addBtn = btn('+ Add Recipe', 'primary');
   addBtn.onclick = () => renderRecipeForm(null, renderRecipes);
 
+  const importBtn = btn('Import from URL', 'secondary');
+  importBtn.onclick = () => showImportBar();
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'flex gap-2';
+  btnGroup.appendChild(importBtn);
+  btnGroup.appendChild(addBtn);
+
   header.appendChild(title);
-  header.appendChild(addBtn);
+  header.appendChild(btnGroup);
   container.appendChild(header);
+
+  // Import URL bar (hidden by default)
+  const importBar = document.createElement('div');
+  importBar.className = 'hidden flex gap-2 mb-4';
+  const urlInput = document.createElement('input');
+  urlInput.type = 'url';
+  urlInput.placeholder = 'Paste recipe URL…';
+  urlInput.className = 'field flex-1';
+  const goBtn = btn('Import', 'primary');
+  const cancelBtn = btn('Cancel', 'ghost');
+  importBar.appendChild(urlInput);
+  importBar.appendChild(goBtn);
+  importBar.appendChild(cancelBtn);
+  container.appendChild(importBar);
+
+  function showImportBar() {
+    importBar.classList.remove('hidden');
+    importBar.classList.add('flex');
+    urlInput.focus();
+    importBtn.disabled = true;
+  }
+
+  cancelBtn.onclick = () => {
+    importBar.classList.add('hidden');
+    importBar.classList.remove('flex');
+    urlInput.value = '';
+    importBtn.disabled = false;
+  };
+
+  async function doImport() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    goBtn.disabled = true;
+    goBtn.textContent = 'Importing…';
+    try {
+      toastInfo('Fetching recipe…');
+      const recipe = await importRecipeFromUrl(url);
+      renderRecipeForm(recipe, renderRecipes, true);
+    } catch (err) {
+      toastError(err.message || 'Could not import recipe.');
+      goBtn.disabled = false;
+      goBtn.textContent = 'Import';
+    }
+  }
+
+  goBtn.onclick = doImport;
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') doImport(); });
 
   if (recipes.length === 0) {
     const empty = document.createElement('p');
