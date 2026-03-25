@@ -1,4 +1,4 @@
-import { recipes, mealPlans, saveMealPlans } from '../data/index.js';
+import { recipes, mealPlans, saveMealPlans, saveRecipes } from '../data/index.js';
 import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
@@ -450,6 +450,49 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   document.body.appendChild(overlay);
 }
 
+// ── Recipe cost estimation ─────────────────────────────────
+
+const EMA_ALPHA = 0.3;
+
+async function updateRecipeCosts(dateKeys, locationId) {
+  const usedIds = new Set(
+    mealPlans.filter(e => dateKeys.includes(e.date)).map(e => e.recipeId)
+  );
+
+  let changed = false;
+
+  for (const id of usedIds) {
+    const recipe = recipes.find(r => r.id === id);
+    if (!recipe) continue;
+
+    let total = 0;
+    for (const ing of (recipe.ingredients || [])) {
+      if (!ing.quantity && !ing.unit) continue; // separator rows
+      const cacheKey = `${locationId}:${ing.name.toLowerCase()}`;
+      const cached   = priceCache.get(cacheKey);
+      if (!cached || cached.text === '–') continue;
+      const val = parseFloat(cached.text.replace('$', ''));
+      if (!isNaN(val)) total += val;
+    }
+
+    if (total === 0) continue;
+
+    const newCostPerServing = total / (recipe.servings || 1);
+    const prior = recipe.estimatedCostPerServing;
+
+    recipe.estimatedCostPerServing = prior != null
+      ? EMA_ALPHA * newCostPerServing + (1 - EMA_ALPHA) * prior
+      : newCostPerServing;
+    recipe.costSampleCount = (recipe.costSampleCount || 0) + 1;
+    recipe.lastPricedAt    = new Date().toISOString();
+    changed = true;
+  }
+
+  if (changed) {
+    try { await saveRecipes([...recipes]); } catch { /* non-fatal */ }
+  }
+}
+
 // ── Kroger data fetching ───────────────────────────────────
 
 // Cache keys are "locationId:itemName"
@@ -651,8 +694,10 @@ export function renderGroceryList() {
         );
         if (uncached.length > 0) {
           const gen = ++fetchGeneration;
-          loadKrogerData(uncached, store.locationId, gen, () => {
-            if (fetchGeneration === gen) render();
+          loadKrogerData(uncached, store.locationId, gen, async () => {
+            if (fetchGeneration !== gen) return;
+            await updateRecipeCosts(keys, store.locationId);
+            render();
           });
         }
       }

@@ -202,6 +202,15 @@ export function renderMealPlan() {
             };
 
             row.appendChild(nameEl);
+
+            if (recipe?.estimatedCostPerServing != null) {
+              const costEl = document.createElement('span');
+              costEl.className = 'text-xs text-gray-400 shrink-0 tabular-nums';
+              costEl.title = `Estimated cost per serving · based on ${recipe.costSampleCount} price ${recipe.costSampleCount === 1 ? 'snapshot' : 'snapshots'}`;
+              costEl.textContent = `≈$${recipe.estimatedCostPerServing.toFixed(2)}`;
+              row.appendChild(costEl);
+            }
+
             row.appendChild(servingsWrap);
             row.appendChild(removeBtn);
             mealGroup.appendChild(row);
