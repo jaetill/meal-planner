@@ -63,19 +63,6 @@ function formatQty(num) {
   return parseFloat(num.toFixed(2)).toString();
 }
 
-// ── Section display order ──────────────────────────────────
-
-const SECTION_ORDER = [
-  'Produce', 'Meat/Seafood', 'Dairy', 'Bakery',
-  'Canned Goods', 'Dry Goods', 'Baking Goods',
-  'Frozen', 'Spices/Condiments', 'Beverages', 'Other',
-];
-
-function sectionSortKey(s) {
-  const i = SECTION_ORDER.indexOf(s);
-  return i === -1 ? SECTION_ORDER.length : i;
-}
-
 // ── Aggregation ────────────────────────────────────────────
 
 function buildGroceryList(dateKeys, defaultServings) {
@@ -103,7 +90,6 @@ function buildGroceryList(dateKeys, defaultServings) {
         map.set(key, {
           name:        ing.name,
           unit:        ing.unit || '',
-          section:     ing.section || 'Other',
           preparation: ing.preparation || '',
           totalQty:    scaledQty,
           rawQty:      ing.quantity || '',
@@ -112,19 +98,7 @@ function buildGroceryList(dateKeys, defaultServings) {
     }
   }
 
-  const sections = new Map();
-  for (const item of map.values()) {
-    const sec = item.section || 'Other';
-    if (!sections.has(sec)) sections.set(sec, []);
-    sections.get(sec).push(item);
-  }
-
-  return [...sections.entries()]
-    .sort(([a], [b]) => sectionSortKey(a) - sectionSortKey(b) || a.localeCompare(b))
-    .map(([section, items]) => ({
-      section,
-      items: items.sort((a, b) => a.name.localeCompare(b.name)),
-    }));
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // ── Servings stepper ───────────────────────────────────────
@@ -476,43 +450,44 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   document.body.appendChild(overlay);
 }
 
-// ── Kroger price fetching ──────────────────────────────────
+// ── Kroger data fetching ───────────────────────────────────
 
-// Cache: "locationId:itemName" → price string (e.g. "$3.99" or "–")
-const priceCache = new Map();
+// Cache keys are "locationId:itemName"
+const priceCache = new Map(); // → { text, promo }
+const aisleCache = new Map(); // → { number, description } | null
 let fetchGeneration = 0;
 
-async function loadPrices(pendingEls, locationId, gen) {
-  for (const [cacheKey, { el, name }] of pendingEls) {
-    if (fetchGeneration !== gen) break;
+async function loadKrogerData(items, locationId, gen, onComplete) {
+  for (const item of items) {
+    if (fetchGeneration !== gen) return;
+    const cacheKey = `${locationId}:${item.name.toLowerCase()}`;
     try {
-      const products = await fetchProducts(name, locationId);
+      const products = await fetchProducts(item.name, locationId);
 
-      // Find the lowest effective price across all results
-      let minVal  = Infinity;
-      let isPromo = false;
+      // Lowest effective price across all results
+      let minVal = Infinity, isPromo = false;
       for (const product of products) {
-        for (const item of (product.items || [])) {
-          const p = item.price;
+        for (const pItem of (product.items || [])) {
+          const p = pItem.price;
           if (!p) continue;
           const val = p.promo ?? p.regular;
-          if (val != null && val < minVal) {
-            minVal  = val;
-            isPromo = !!p.promo;
-          }
+          if (val != null && val < minVal) { minVal = val; isPromo = !!p.promo; }
         }
       }
+      priceCache.set(cacheKey, { text: minVal < Infinity ? `$${minVal.toFixed(2)}` : '–', promo: isPromo });
 
-      const text = minVal < Infinity ? `$${minVal.toFixed(2)}` : '–';
-      priceCache.set(cacheKey, { text, promo: isPromo });
-      if (fetchGeneration === gen) {
-        el.textContent = text;
-        if (isPromo) el.classList.replace('text-gray-400', 'text-green-600');
-      }
+      // Aisle from first product that has location data
+      const aisleLocation = products.find(p => p.aisleLocations?.length)?.aisleLocations[0];
+      aisleCache.set(cacheKey, aisleLocation
+        ? { number: aisleLocation.number, description: aisleLocation.description }
+        : null);
+
     } catch {
-      if (fetchGeneration === gen) el.textContent = '–';
+      priceCache.set(cacheKey, { text: '–', promo: false });
+      aisleCache.set(cacheKey, null);
     }
   }
+  if (fetchGeneration === gen) onComplete();
 }
 
 // ── Main render ────────────────────────────────────────────
@@ -524,8 +499,8 @@ export function renderGroceryList() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let startDate      = today;
-  let endDate        = addDays(today, 6);
+  let startDate       = today;
+  let endDate         = addDays(today, 6);
   let defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
 
   const checked = new Set();
@@ -566,9 +541,9 @@ export function renderGroceryList() {
     const d = new Date(startDate);
     while (d <= endDate) { keys.push(toDateKey(d)); d.setDate(d.getDate() + 1); }
 
-    const sections = buildGroceryList(keys, defaultServings);
+    const items = buildGroceryList(keys, defaultServings);
 
-    if (sections.length === 0) {
+    if (items.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'text-gray-400 text-sm text-center py-16';
       empty.textContent = 'No meals planned in this date range.';
@@ -576,14 +551,15 @@ export function renderGroceryList() {
       return;
     }
 
-    const store      = getSavedStore();
-    const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
+    const store = getSavedStore();
+
+    // Summary row
     const summaryRow = document.createElement('div');
-    summaryRow.className = 'flex items-center justify-between mb-4';
+    summaryRow.className = 'flex items-center justify-between mb-1';
 
     const countEl = document.createElement('span');
     countEl.className = 'text-xs text-gray-400';
-    countEl.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+    countEl.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
 
     const summaryRight = document.createElement('div');
     summaryRight.className = 'flex items-center gap-3';
@@ -608,82 +584,128 @@ export function renderGroceryList() {
 
     if (store) {
       const legend = document.createElement('p');
-      legend.className = 'text-xs text-gray-400 mb-4 -mt-2';
-      legend.innerHTML = 'Lowest available price at selected store &middot; <span class="text-green-600">green</span> = on sale';
+      legend.className = 'text-xs text-gray-400 mb-4';
+      legend.innerHTML = 'Sorted by aisle &middot; lowest available price &middot; <span class="text-green-600">green</span> = on sale';
       container.appendChild(legend);
     }
 
-    // pendingEls: cacheKey → { el, name } for items that need a price fetch
-    const pendingEls = new Map();
-    const gen = ++fetchGeneration;
+    // Determine if we have aisle data for all items
+    const allAislesCached = store && items.every(
+      item => aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
+    );
 
-    for (const { section, items } of sections) {
-      const sectionEl = document.createElement('div');
-      sectionEl.className = 'mb-5';
-
-      const sectionLabel = document.createElement('div');
-      sectionLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
-      sectionLabel.textContent = section;
-      sectionEl.appendChild(sectionLabel);
-
-      const card = document.createElement('div');
-      card.className = 'card divide-y divide-gray-50';
-
+    if (store && allAislesCached) {
+      // ── Aisle-grouped render ────────────────────────────
+      const aisleMap = new Map();
       for (const item of items) {
-        const key = `${item.name.toLowerCase()}|${item.unit.toLowerCase()}`;
-        const isChecked = checked.has(key);
-
-        const row = document.createElement('label');
-        row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${isChecked ? ' opacity-40' : ''}`;
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = isChecked;
-        checkbox.className = 'w-4 h-4 rounded accent-green-600 shrink-0';
-        checkbox.onchange = () => {
-          if (checkbox.checked) checked.add(key); else checked.delete(key);
-          row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${checkbox.checked ? ' opacity-40' : ''}`;
-          textEl.classList.toggle('line-through', checkbox.checked);
-        };
-
-        const textEl = document.createElement('span');
-        textEl.className = `text-sm text-gray-800 flex-1${isChecked ? ' line-through' : ''}`;
-
-        const qtyStr = item.totalQty > 0 ? formatQty(item.totalQty) : item.rawQty;
-        const parts  = [qtyStr, item.unit, item.name].filter(Boolean).join(' ');
-        textEl.textContent = item.preparation ? `${parts}, ${item.preparation}` : parts;
-
-        row.appendChild(checkbox);
-        row.appendChild(textEl);
-
-        if (store) {
-          const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
-          const priceEl  = document.createElement('span');
-          priceEl.className = 'text-xs text-gray-400 shrink-0 w-12 text-right tabular-nums';
-
-          const cached = priceCache.get(cacheKey);
-          if (cached) {
-            priceEl.textContent = cached.text;
-            if (cached.promo) priceEl.classList.replace('text-gray-400', 'text-green-600');
-          } else {
-            priceEl.textContent = '···';
-            pendingEls.set(cacheKey, { el: priceEl, name: item.name });
-          }
-
-          row.appendChild(priceEl);
-        }
-
-        card.appendChild(row);
+        const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
+        const aisle    = aisleCache.get(cacheKey);
+        const groupKey = aisle?.number ?? '?';
+        if (!aisleMap.has(groupKey)) aisleMap.set(groupKey, { aisle, items: [] });
+        aisleMap.get(groupKey).items.push(item);
       }
 
-      sectionEl.appendChild(card);
-      container.appendChild(sectionEl);
-    }
+      const sortedGroups = [...aisleMap.entries()].sort(([a], [b]) => {
+        if (a === '?') return 1;
+        if (b === '?') return -1;
+        return parseInt(a) - parseInt(b);
+      });
 
-    if (store && pendingEls.size > 0) {
-      loadPrices(pendingEls, store.locationId, gen);
+      for (const [, { aisle, items: groupItems }] of sortedGroups) {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'mb-5';
+
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
+        groupLabel.textContent = aisle
+          ? `Aisle ${aisle.number}${aisle.description ? ` · ${aisle.description}` : ''}`
+          : 'Other';
+        groupEl.appendChild(groupLabel);
+
+        const card = document.createElement('div');
+        card.className = 'card divide-y divide-gray-50';
+
+        for (const item of groupItems) {
+          card.appendChild(makeItemRow(item, store, checked));
+        }
+
+        groupEl.appendChild(card);
+        container.appendChild(groupEl);
+      }
+
+    } else {
+      // ── Flat render (no store, or aisles still loading) ─
+      // Prices show as cached or '···'; re-renders as aisle view once all data loads.
+      const card = document.createElement('div');
+      card.className = 'card divide-y divide-gray-50 mb-5';
+
+      for (const item of items) {
+        card.appendChild(makeItemRow(item, store, checked));
+      }
+
+      container.appendChild(card);
+
+      if (store) {
+        const uncached = items.filter(
+          item => !aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
+        );
+        if (uncached.length > 0) {
+          const gen = ++fetchGeneration;
+          loadKrogerData(uncached, store.locationId, gen, () => {
+            if (fetchGeneration === gen) render();
+          });
+        }
+      }
     }
   }
 
   render();
+}
+
+// ── Item row builder ───────────────────────────────────────
+
+function makeItemRow(item, store, checked) {
+  const key       = `${item.name.toLowerCase()}|${item.unit.toLowerCase()}`;
+  const isChecked = checked.has(key);
+
+  const row = document.createElement('label');
+  row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${isChecked ? ' opacity-40' : ''}`;
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = isChecked;
+  checkbox.className = 'w-4 h-4 rounded accent-green-600 shrink-0';
+  checkbox.onchange = () => {
+    if (checkbox.checked) checked.add(key); else checked.delete(key);
+    row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${checkbox.checked ? ' opacity-40' : ''}`;
+    textEl.classList.toggle('line-through', checkbox.checked);
+  };
+
+  const textEl = document.createElement('span');
+  textEl.className = `text-sm text-gray-800 flex-1${isChecked ? ' line-through' : ''}`;
+
+  const qtyStr = item.totalQty > 0 ? formatQty(item.totalQty) : item.rawQty;
+  const parts  = [qtyStr, item.unit, item.name].filter(Boolean).join(' ');
+  textEl.textContent = item.preparation ? `${parts}, ${item.preparation}` : parts;
+
+  row.appendChild(checkbox);
+  row.appendChild(textEl);
+
+  if (store) {
+    const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
+    const priceEl  = document.createElement('span');
+    priceEl.className = 'text-xs text-gray-400 shrink-0 w-12 text-right tabular-nums';
+
+    const cached = priceCache.get(cacheKey);
+    if (cached) {
+      priceEl.textContent = cached.text;
+      if (cached.promo) priceEl.classList.replace('text-gray-400', 'text-green-600');
+    } else {
+      priceEl.textContent = '···';
+    }
+
+    row.appendChild(priceEl);
+  }
+
+  return row;
 }
