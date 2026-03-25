@@ -1,4 +1,5 @@
 import { recipes, mealPlans, saveMealPlans } from '../data/index.js';
+import { getSavedStore, saveStore, fetchStores } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 
@@ -320,6 +321,117 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   }
 
   refreshMealRows();
+
+  // ── Store picker ──────────────────────────────────────
+  const storeSection = document.createElement('div');
+  const storeLabel = document.createElement('div');
+  storeLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
+  storeLabel.textContent = 'Store';
+  storeSection.appendChild(storeLabel);
+
+  let selectedStore = getSavedStore();
+
+  const storeDisplay = document.createElement('div');
+  storeDisplay.className = 'space-y-2';
+
+  function renderStoreDisplay() {
+    storeDisplay.innerHTML = '';
+
+    if (selectedStore) {
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'text-sm text-gray-700';
+      nameEl.textContent = selectedStore.name.replace(/^(Kroger|Harris Teeter)\s*-\s*/i, '');
+
+      const chainEl = document.createElement('span');
+      chainEl.className = 'text-xs text-gray-400 ml-1';
+      chainEl.textContent = `· ${selectedStore.city}, ${selectedStore.state}`;
+
+      const changeBtn = btn('Change', 'secondary');
+      changeBtn.className += ' text-xs py-1 px-2';
+      changeBtn.onclick = () => { selectedStore = null; renderStoreDisplay(); };
+
+      const nameWrap = document.createElement('span');
+      nameWrap.appendChild(nameEl);
+      nameWrap.appendChild(chainEl);
+      row.appendChild(nameWrap);
+      row.appendChild(changeBtn);
+      storeDisplay.appendChild(row);
+      return;
+    }
+
+    // Zip input + search
+    const searchRow = document.createElement('div');
+    searchRow.className = 'flex gap-2';
+
+    const zipInput = document.createElement('input');
+    zipInput.type = 'text';
+    zipInput.placeholder = 'ZIP code';
+    zipInput.maxLength = 5;
+    zipInput.className = 'field flex-1';
+    zipInput.value = localStorage.getItem('krogerZip') || '';
+
+    const searchBtn = btn('Find stores', 'secondary');
+    searchBtn.className += ' shrink-0 text-sm';
+
+    const resultsList = document.createElement('div');
+    resultsList.className = 'space-y-1 mt-1';
+
+    async function doSearch() {
+      const zip = zipInput.value.trim();
+      if (!/^\d{5}$/.test(zip)) { resultsList.innerHTML = '<p class="text-xs text-red-500">Enter a 5-digit ZIP.</p>'; return; }
+      localStorage.setItem('krogerZip', zip);
+      searchBtn.disabled = true;
+      searchBtn.textContent = 'Searching…';
+      resultsList.innerHTML = '';
+      try {
+        const stores = await fetchStores(zip);
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Find stores';
+        if (stores.length === 0) {
+          resultsList.innerHTML = '<p class="text-xs text-gray-400">No stores found nearby.</p>';
+          return;
+        }
+        for (const store of stores) {
+          const storeBtn = document.createElement('button');
+          storeBtn.type = 'button';
+          storeBtn.className = 'w-full text-left text-sm px-3 py-2 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors';
+          const displayName = store.name.replace(/^(Kroger|Harris Teeter)\s*-\s*/i, '');
+          storeBtn.innerHTML = `<span class="font-medium text-gray-800">${displayName}</span><span class="text-xs text-gray-400 ml-2">${store.address?.city}, ${store.address?.state}</span>`;
+          storeBtn.onclick = () => {
+            selectedStore = {
+              locationId: store.locationId,
+              name:       store.name,
+              city:       store.address?.city || '',
+              state:      store.address?.state || '',
+            };
+            saveStore(selectedStore);
+            renderStoreDisplay();
+          };
+          resultsList.appendChild(storeBtn);
+        }
+      } catch {
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Find stores';
+        resultsList.innerHTML = '<p class="text-xs text-red-500">Could not load stores. Try again.</p>';
+      }
+    }
+
+    searchBtn.onclick = doSearch;
+    zipInput.onkeydown = e => { if (e.key === 'Enter') doSearch(); };
+
+    searchRow.appendChild(zipInput);
+    searchRow.appendChild(searchBtn);
+    storeDisplay.appendChild(searchRow);
+    storeDisplay.appendChild(resultsList);
+  }
+
+  renderStoreDisplay();
+  storeSection.appendChild(storeDisplay);
+  scrollArea.appendChild(storeSection);
+
   sheet.appendChild(scrollArea);
 
   // ── Apply button ──────────────────────────────────────

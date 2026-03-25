@@ -1,5 +1,7 @@
 export const DEBUG_MODE = false;
 
+export const API_BASE = 'https://dmtezcygeb.execute-api.us-east-2.amazonaws.com';
+
 export default {
   Auth: {
     region: 'us-east-2',
