@@ -113,7 +113,7 @@ export function renderMealPlan() {
           byMeal[meal].forEach(entry => {
             const recipe = recipes.find(r => r.id === entry.recipeId);
             const row = document.createElement('div');
-            row.className = 'flex items-center justify-between gap-2 py-0.5';
+            row.className = 'flex items-center gap-2 py-0.5';
 
             const nameEl = document.createElement('span');
             nameEl.className = 'text-sm text-gray-800 flex-1 cursor-pointer hover:text-green-700';
@@ -121,6 +121,71 @@ export function renderMealPlan() {
             if (recipe) {
               nameEl.onclick = () => renderRecipeView(recipe, renderMealPlan);
             }
+
+            // Servings badge — tap to edit inline
+            const defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
+            let currentServings = entry.servings ?? defaultServings;
+
+            const servingsWrap = document.createElement('div');
+            servingsWrap.className = 'flex items-center shrink-0';
+
+            function showBadge() {
+              servingsWrap.innerHTML = '';
+              const badge = document.createElement('button');
+              badge.type = 'button';
+              badge.className = 'text-xs text-gray-400 hover:text-green-600 px-1.5 py-0.5 rounded hover:bg-green-50';
+              badge.textContent = `${currentServings}×`;
+              badge.title = 'Edit servings';
+              badge.onclick = showStepper;
+              servingsWrap.appendChild(badge);
+            }
+
+            function showStepper() {
+              servingsWrap.innerHTML = '';
+
+              const minus = document.createElement('button');
+              minus.type = 'button';
+              minus.textContent = '−';
+              minus.className = 'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
+
+              const display = document.createElement('span');
+              display.className = 'text-xs font-semibold text-gray-700 w-5 text-center';
+              display.textContent = currentServings;
+
+              const plus = document.createElement('button');
+              plus.type = 'button';
+              plus.textContent = '+';
+              plus.className = 'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
+
+              const confirm = document.createElement('button');
+              confirm.type = 'button';
+              confirm.textContent = '✓';
+              confirm.className = 'text-xs w-5 h-5 flex items-center justify-center text-green-600 hover:text-green-700 ml-0.5';
+
+              minus.onclick = () => {
+                if (currentServings > 1) { currentServings--; display.textContent = currentServings; }
+              };
+              plus.onclick = () => {
+                currentServings++;
+                display.textContent = currentServings;
+              };
+              confirm.onclick = async () => {
+                entry.servings = currentServings;
+                try {
+                  await saveMealPlans([...mealPlans]);
+                } catch {
+                  toastError('Could not save servings. Try again.');
+                }
+                showBadge();
+              };
+
+              servingsWrap.appendChild(minus);
+              servingsWrap.appendChild(display);
+              servingsWrap.appendChild(plus);
+              servingsWrap.appendChild(confirm);
+            }
+
+            showBadge();
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
@@ -137,6 +202,7 @@ export function renderMealPlan() {
             };
 
             row.appendChild(nameEl);
+            row.appendChild(servingsWrap);
             row.appendChild(removeBtn);
             mealGroup.appendChild(row);
           });
