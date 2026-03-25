@@ -487,16 +487,27 @@ async function loadPrices(pendingEls, locationId, gen) {
     if (fetchGeneration !== gen) break;
     try {
       const products = await fetchProducts(name, locationId);
-      const priceObj  = products[0]?.items?.[0]?.price;
-      let text = '–';
-      if (priceObj) {
-        const val = priceObj.promo ?? priceObj.regular;
-        if (val != null) text = `$${val.toFixed(2)}`;
+
+      // Find the lowest effective price across all results
+      let minVal  = Infinity;
+      let isPromo = false;
+      for (const product of products) {
+        for (const item of (product.items || [])) {
+          const p = item.price;
+          if (!p) continue;
+          const val = p.promo ?? p.regular;
+          if (val != null && val < minVal) {
+            minVal  = val;
+            isPromo = !!p.promo;
+          }
+        }
       }
-      priceCache.set(cacheKey, { text, promo: !!priceObj?.promo });
+
+      const text = minVal < Infinity ? `$${minVal.toFixed(2)}` : '–';
+      priceCache.set(cacheKey, { text, promo: isPromo });
       if (fetchGeneration === gen) {
         el.textContent = text;
-        if (priceObj?.promo) el.classList.replace('text-gray-400', 'text-green-600');
+        if (isPromo) el.classList.replace('text-gray-400', 'text-green-600');
       }
     } catch {
       if (fetchGeneration === gen) el.textContent = '–';
@@ -594,6 +605,13 @@ export function renderGroceryList() {
     summaryRow.appendChild(countEl);
     summaryRow.appendChild(summaryRight);
     container.appendChild(summaryRow);
+
+    if (store) {
+      const legend = document.createElement('p');
+      legend.className = 'text-xs text-gray-400 mb-4 -mt-2';
+      legend.innerHTML = 'Lowest available price at selected store &middot; <span class="text-green-600">green</span> = on sale';
+      container.appendChild(legend);
+    }
 
     // pendingEls: cacheKey → { el, name } for items that need a price fetch
     const pendingEls = new Map();
