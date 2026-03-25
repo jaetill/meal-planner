@@ -1,5 +1,5 @@
 import { recipes, mealPlans, saveMealPlans } from '../data/index.js';
-import { getSavedStore, saveStore, fetchStores } from '../data/kroger.js';
+import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 
@@ -476,6 +476,34 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   document.body.appendChild(overlay);
 }
 
+// ── Kroger price fetching ──────────────────────────────────
+
+// Cache: "locationId:itemName" → price string (e.g. "$3.99" or "–")
+const priceCache = new Map();
+let fetchGeneration = 0;
+
+async function loadPrices(pendingEls, locationId, gen) {
+  for (const [cacheKey, { el, name }] of pendingEls) {
+    if (fetchGeneration !== gen) break;
+    try {
+      const products = await fetchProducts(name, locationId);
+      const priceObj  = products[0]?.items?.[0]?.price;
+      let text = '–';
+      if (priceObj) {
+        const val = priceObj.promo ?? priceObj.regular;
+        if (val != null) text = `$${val.toFixed(2)}`;
+      }
+      priceCache.set(cacheKey, { text, promo: !!priceObj?.promo });
+      if (fetchGeneration === gen) {
+        el.textContent = text;
+        if (priceObj?.promo) el.classList.replace('text-gray-400', 'text-green-600');
+      }
+    } catch {
+      if (fetchGeneration === gen) el.textContent = '–';
+    }
+  }
+}
+
 // ── Main render ────────────────────────────────────────────
 
 export function renderGroceryList() {
@@ -537,6 +565,7 @@ export function renderGroceryList() {
       return;
     }
 
+    const store      = getSavedStore();
     const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
     const summaryRow = document.createElement('div');
     summaryRow.className = 'flex items-center justify-between mb-4';
@@ -545,15 +574,30 @@ export function renderGroceryList() {
     countEl.className = 'text-xs text-gray-400';
     countEl.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
 
+    const summaryRight = document.createElement('div');
+    summaryRight.className = 'flex items-center gap-3';
+
+    if (store) {
+      const storeEl = document.createElement('span');
+      storeEl.className = 'text-xs text-gray-400 italic';
+      storeEl.textContent = store.name.replace(/^(Kroger|Harris Teeter)\s*-\s*/i, '');
+      summaryRight.appendChild(storeEl);
+    }
+
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.textContent = 'Clear checks';
     clearBtn.className = 'text-xs text-gray-400 hover:text-gray-600';
     clearBtn.onclick = () => { checked.clear(); render(); };
 
+    summaryRight.appendChild(clearBtn);
     summaryRow.appendChild(countEl);
-    summaryRow.appendChild(clearBtn);
+    summaryRow.appendChild(summaryRight);
     container.appendChild(summaryRow);
+
+    // pendingEls: cacheKey → { el, name } for items that need a price fetch
+    const pendingEls = new Map();
+    const gen = ++fetchGeneration;
 
     for (const { section, items } of sections) {
       const sectionEl = document.createElement('div');
@@ -593,11 +637,33 @@ export function renderGroceryList() {
 
         row.appendChild(checkbox);
         row.appendChild(textEl);
+
+        if (store) {
+          const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
+          const priceEl  = document.createElement('span');
+          priceEl.className = 'text-xs text-gray-400 shrink-0 w-12 text-right tabular-nums';
+
+          const cached = priceCache.get(cacheKey);
+          if (cached) {
+            priceEl.textContent = cached.text;
+            if (cached.promo) priceEl.classList.replace('text-gray-400', 'text-green-600');
+          } else {
+            priceEl.textContent = '···';
+            pendingEls.set(cacheKey, { el: priceEl, name: item.name });
+          }
+
+          row.appendChild(priceEl);
+        }
+
         card.appendChild(row);
       }
 
       sectionEl.appendChild(card);
       container.appendChild(sectionEl);
+    }
+
+    if (store && pendingEls.size > 0) {
+      loadPrices(pendingEls, store.locationId, gen);
     }
   }
 
