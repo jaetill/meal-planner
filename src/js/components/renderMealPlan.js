@@ -1,6 +1,6 @@
 import { recipes } from '../data/index.js';
 import { mealPlans, saveMealPlans } from '../data/index.js';
-import { calcDailyNutrition } from '../data/nutrition.js';
+import { calcDailyNutrition, populateRecipeNutrition } from '../data/nutrition.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 import { renderRecipeView } from './renderRecipeView.js';
@@ -248,6 +248,29 @@ export function renderMealPlan() {
   }
 
   render();
+  prefetchWeekNutrition();
+
+  function prefetchWeekNutrition() {
+    const keys = Array.from({ length: 7 }, (_, i) =>
+      toDateKey(addDays(weekStart, i))
+    );
+    const unpopulated = [...new Set(
+      mealPlans
+        .filter(e => keys.includes(e.date))
+        .map(e => e.recipeId)
+    )]
+      .map(id => recipes.find(r => r.id === id))
+      .filter(r => r && r.ingredients?.some(ing => ing.quantity && ing.calories == null));
+
+    if (unpopulated.length === 0) return;
+
+    (async () => {
+      for (const recipe of unpopulated) {
+        await populateRecipeNutrition(recipe);
+      }
+      render();
+    })();
+  }
 }
 
 // ── Recipe picker modal ───────────────────────────────────
