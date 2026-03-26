@@ -1,6 +1,7 @@
 import { btn } from '../ui/elements.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipes } from './renderRecipes.js';
+import { populateRecipeNutrition, calcNutritionPerServing } from '../data/nutrition.js';
 
 export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
@@ -102,6 +103,76 @@ export function renderRecipeView(recipe, onBack) {
       ingList.appendChild(li);
     });
     container.appendChild(ingList);
+  }
+
+  // Nutrition
+  if (recipe.ingredients?.some(ing => ing.quantity)) {
+    const label = document.createElement('span');
+    label.className = 'section-label';
+    label.textContent = 'Nutrition per serving';
+    container.appendChild(label);
+
+    const nutritionCard = document.createElement('div');
+    nutritionCard.className = 'card mb-5';
+
+    function renderNutrition() {
+      nutritionCard.innerHTML = '';
+      const n = calcNutritionPerServing(recipe);
+
+      if (!n) {
+        const loading = document.createElement('p');
+        loading.className = 'text-xs text-gray-400 text-center py-2';
+        loading.textContent = 'Loading nutrition…';
+        nutritionCard.appendChild(loading);
+        return;
+      }
+
+      // Primary row: calories, protein, fat, carbs
+      const primary = document.createElement('div');
+      primary.className = 'grid grid-cols-4 divide-x divide-gray-100 mb-3';
+      [
+        { label: 'Calories', value: n.calories, unit: '' },
+        { label: 'Protein',  value: n.protein,  unit: 'g' },
+        { label: 'Fat',      value: n.fat,       unit: 'g' },
+        { label: 'Carbs',    value: n.carbs,     unit: 'g' },
+      ].forEach(({ label, value, unit }) => {
+        const cell = document.createElement('div');
+        cell.className = 'flex flex-col items-center py-2';
+        const val = document.createElement('span');
+        val.className = 'text-base font-bold text-gray-800';
+        val.textContent = value != null ? `${value}${unit}` : '–';
+        const lbl = document.createElement('span');
+        lbl.className = 'text-xs text-gray-400 mt-0.5';
+        lbl.textContent = label;
+        cell.appendChild(val);
+        cell.appendChild(lbl);
+        primary.appendChild(cell);
+      });
+      nutritionCard.appendChild(primary);
+
+      // Secondary row: sat fat, cholesterol, sodium, fiber, sugar
+      const secondary = document.createElement('div');
+      secondary.className = 'flex flex-wrap gap-x-4 gap-y-1 pt-2 border-t border-gray-50 px-1';
+      [
+        { label: 'Sat. fat',  value: n.saturatedFat, unit: 'g'  },
+        { label: 'Cholest.',  value: n.cholesterol,  unit: 'mg' },
+        { label: 'Sodium',    value: n.sodium,        unit: 'mg' },
+        { label: 'Fiber',     value: n.fiber,         unit: 'g'  },
+        { label: 'Sugar',     value: n.sugar,         unit: 'g'  },
+      ].forEach(({ label, value, unit }) => {
+        const item = document.createElement('span');
+        item.className = 'text-xs text-gray-500';
+        item.textContent = `${label}: ${value != null ? `${value}${unit}` : '–'}`;
+        secondary.appendChild(item);
+      });
+      nutritionCard.appendChild(secondary);
+    }
+
+    renderNutrition();
+    container.appendChild(nutritionCard);
+
+    // Fetch missing nutrition in the background, then re-render
+    populateRecipeNutrition(recipe).then(() => renderNutrition());
   }
 
   // Directions

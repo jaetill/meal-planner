@@ -1,5 +1,6 @@
 import { recipes } from '../data/index.js';
 import { mealPlans, saveMealPlans } from '../data/index.js';
+import { calcDailyNutrition } from '../data/nutrition.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 import { renderRecipeView } from './renderRecipeView.js';
@@ -218,6 +219,28 @@ export function renderMealPlan() {
 
           card.appendChild(mealGroup);
         });
+      }
+
+      // Daily nutrition summary
+      if (dayEntries.length > 0) {
+        const defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
+        const n = calcDailyNutrition(dayEntries, recipes, defaultServings);
+        if (n) {
+          const nutritionRow = document.createElement('div');
+          nutritionRow.className = 'flex gap-3 mt-2 pt-2 border-t border-gray-50';
+          [
+            { label: 'cal',  value: n.calories },
+            { label: 'pro',  value: n.protein,  unit: 'g' },
+            { label: 'fat',  value: n.fat,       unit: 'g' },
+            { label: 'carb', value: n.carbs,     unit: 'g' },
+          ].forEach(({ label, value, unit = '' }) => {
+            const item = document.createElement('span');
+            item.className = 'text-xs text-gray-400';
+            item.textContent = `${value}${unit} ${label}`;
+            nutritionRow.appendChild(item);
+          });
+          card.appendChild(nutritionRow);
+        }
       }
 
       container.appendChild(card);
