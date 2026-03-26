@@ -223,8 +223,7 @@ export function renderMealPlan() {
 
       // Daily nutrition summary
       if (dayEntries.length > 0) {
-        const defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
-        const n = calcDailyNutrition(dayEntries, recipes, defaultServings);
+        const n = calcDailyNutrition(dayEntries, recipes);
         if (n) {
           const nutritionRow = document.createElement('div');
           nutritionRow.className = 'flex gap-3 mt-2 pt-2 border-t border-gray-50';

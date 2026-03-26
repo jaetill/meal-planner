@@ -49,7 +49,7 @@ export function calcNutritionPerServing(recipe) {
 
 // ── Daily totals across multiple recipe entries ────────────
 
-export function calcDailyNutrition(entries, recipeList, defaultServings) {
+export function calcDailyNutrition(entries, recipeList) {
   const totals = Object.fromEntries(FIELDS.map(f => [f, 0]));
   let hasAny   = false;
 
@@ -58,9 +58,8 @@ export function calcDailyNutrition(entries, recipeList, defaultServings) {
     if (!recipe) continue;
     const perServing = calcNutritionPerServing(recipe);
     if (!perServing) continue;
-    const servings = entry.servings ?? defaultServings;
     for (const field of FIELDS) {
-      totals[field] += (perServing[field] || 0) * servings;
+      totals[field] += perServing[field] || 0;
     }
     hasAny = true;
   }
