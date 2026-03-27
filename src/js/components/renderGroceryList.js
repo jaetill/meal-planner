@@ -1,4 +1,4 @@
-import { recipes, mealPlans, saveMealPlans, saveRecipes } from '../data/index.js';
+import { recipes, mealPlans, saveMealPlans, saveRecipes, staples, saveStaples } from '../data/index.js';
 import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
@@ -533,6 +533,164 @@ async function loadKrogerData(items, locationId, gen, onComplete) {
   if (fetchGeneration === gen) onComplete();
 }
 
+// ── Staples section ────────────────────────────────────────
+
+let staplesEditMode = false;
+
+function renderStaplesSection(container, store, checkedStaples) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mt-6';
+
+  function redraw() {
+    wrapper.innerHTML = '';
+
+    const collapsed = localStorage.getItem('staplesCollapsed') === 'true';
+
+    // Header
+    const headerRow = document.createElement('div');
+    headerRow.className = 'flex items-center justify-between mb-2';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none';
+    titleEl.textContent = `Staples${staples.length ? ` (${staples.length})` : ''}`;
+    titleEl.onclick = () => {
+      localStorage.setItem('staplesCollapsed', String(!collapsed));
+      redraw();
+    };
+
+    const rightGroup = document.createElement('div');
+    rightGroup.className = 'flex items-center gap-3';
+
+    if (!collapsed) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'text-xs text-gray-400 hover:text-green-600';
+      editBtn.textContent = staplesEditMode ? 'Done' : 'Edit';
+      editBtn.onclick = () => { staplesEditMode = !staplesEditMode; redraw(); };
+      rightGroup.appendChild(editBtn);
+    }
+
+    const chevron = document.createElement('span');
+    chevron.className = 'text-xs text-gray-300 cursor-pointer select-none';
+    chevron.textContent = collapsed ? '▶' : '▼';
+    chevron.onclick = () => {
+      localStorage.setItem('staplesCollapsed', String(!collapsed));
+      redraw();
+    };
+    rightGroup.appendChild(chevron);
+
+    headerRow.appendChild(titleEl);
+    headerRow.appendChild(rightGroup);
+    wrapper.appendChild(headerRow);
+
+    if (collapsed) return;
+
+    // Item list
+    if (staples.length === 0 && !staplesEditMode) {
+      const empty = document.createElement('p');
+      empty.className = 'text-xs text-gray-300 italic mb-2';
+      empty.textContent = 'No staples yet — tap Edit to add some.';
+      wrapper.appendChild(empty);
+    } else {
+      const card = document.createElement('div');
+      card.className = 'card divide-y divide-gray-50 mb-3';
+
+      for (const staple of staples) {
+        if (staplesEditMode) {
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2 py-2.5 px-1';
+
+          const textEl = document.createElement('span');
+          textEl.className = 'text-sm text-gray-700 flex-1';
+          const qtyStr = [staple.quantity, staple.unit, staple.name].filter(Boolean).join(' ');
+          textEl.textContent = qtyStr;
+          row.appendChild(textEl);
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.textContent = '×';
+          delBtn.className = 'text-gray-300 hover:text-red-400 text-lg leading-none shrink-0';
+          delBtn.onclick = async () => {
+            const updated = staples.filter(s => s.id !== staple.id);
+            try {
+              await saveStaples(updated);
+            } catch { toastError('Could not remove staple.'); }
+            redraw();
+          };
+          row.appendChild(delBtn);
+          card.appendChild(row);
+        } else {
+          const fakeItem = {
+            name:        staple.name,
+            unit:        staple.unit || '',
+            preparation: '',
+            totalQty:    parseQty(staple.quantity),
+            rawQty:      staple.quantity || '',
+          };
+          card.appendChild(makeItemRow(fakeItem, store, checkedStaples));
+        }
+      }
+
+      wrapper.appendChild(card);
+    }
+
+    // Add form (edit mode only)
+    if (staplesEditMode) {
+      const addRow = document.createElement('div');
+      addRow.className = 'flex gap-2 items-center';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Item name';
+      nameInput.className = 'field flex-1 text-sm';
+
+      const qtyInput = document.createElement('input');
+      qtyInput.type = 'text';
+      qtyInput.placeholder = 'Qty';
+      qtyInput.className = 'field w-14 text-sm';
+
+      const unitInput = document.createElement('input');
+      unitInput.type = 'text';
+      unitInput.placeholder = 'Unit';
+      unitInput.className = 'field w-16 text-sm';
+
+      const addBtn = btn('+ Add', 'secondary');
+      addBtn.className += ' text-sm shrink-0';
+
+      async function doAdd() {
+        const name = nameInput.value.trim();
+        if (!name) return;
+        const newStaple = {
+          id:       crypto.randomUUID(),
+          name,
+          quantity: qtyInput.value.trim(),
+          unit:     unitInput.value.trim(),
+        };
+        try {
+          await saveStaples([...staples, newStaple]);
+          nameInput.value = '';
+          qtyInput.value  = '';
+          unitInput.value = '';
+          nameInput.focus();
+        } catch { toastError('Could not save staple.'); }
+        redraw();
+      }
+
+      addBtn.onclick = doAdd;
+      nameInput.onkeydown = e => { if (e.key === 'Enter') doAdd(); };
+
+      addRow.appendChild(nameInput);
+      addRow.appendChild(qtyInput);
+      addRow.appendChild(unitInput);
+      addRow.appendChild(addBtn);
+      wrapper.appendChild(addRow);
+    }
+  }
+
+  redraw();
+  container.appendChild(wrapper);
+}
+
 // ── Main render ────────────────────────────────────────────
 
 export function renderGroceryList() {
@@ -546,7 +704,8 @@ export function renderGroceryList() {
   let endDate         = addDays(today, 6);
   let defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
 
-  const checked = new Set();
+  const checked        = new Set();
+  const checkedStaples = new Set();
 
   function render() {
     container.innerHTML = '';
@@ -676,6 +835,8 @@ export function renderGroceryList() {
         container.appendChild(groupEl);
       }
 
+      renderStaplesSection(container, store, checkedStaples);
+
     } else {
       // ── Flat render (no store, or aisles still loading) ─
       // Prices show as cached or '···'; re-renders as aisle view once all data loads.
@@ -689,7 +850,11 @@ export function renderGroceryList() {
       container.appendChild(card);
 
       if (store) {
-        const uncached = items.filter(
+        const allItems = [
+          ...items,
+          ...staples.map(s => ({ name: s.name, unit: s.unit || '' })),
+        ];
+        const uncached = allItems.filter(
           item => !aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
         );
         if (uncached.length > 0) {
@@ -702,6 +867,8 @@ export function renderGroceryList() {
         }
       }
     }
+
+    renderStaplesSection(container, store, checkedStaples);
   }
 
   render();

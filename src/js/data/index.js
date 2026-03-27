@@ -99,6 +99,21 @@ async function saveJSON(key, data) {
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
 }
 
+// ── Staples ───────────────────────────────────────────────
+
+export let staples = [];
+
+export async function loadStaples() {
+  const data = await fetchJSON('staples.json');
+  staples = data || [];
+  return staples;
+}
+
+export async function saveStaples(updated) {
+  await saveJSON('staples.json', updated);
+  staples = updated;
+}
+
 // ── Meal Plans ────────────────────────────────────────────
 
 export let mealPlans = [];

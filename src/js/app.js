@@ -1,6 +1,6 @@
 import { Amplify, Auth } from 'aws-amplify';
 import amplifyConfig from './config.js';
-import { loadRecipes, loadMealPlans, loadActiveGroup } from './data/index.js';
+import { loadRecipes, loadMealPlans, loadActiveGroup, loadStaples } from './data/index.js';
 import { renderRecipes } from './components/renderRecipes.js';
 import { renderMealPlan } from './components/renderMealPlan.js';
 import { renderGroceryList } from './components/renderGroceryList.js';
@@ -49,7 +49,7 @@ async function init() {
   } catch (err) {
     console.error('Could not load group:', err);
   }
-  await Promise.allSettled([loadRecipes(), loadMealPlans()]);
+  await Promise.allSettled([loadRecipes(), loadMealPlans(), loadStaples()]);
 
   setActiveNav('recipes');
   renderRecipes();
