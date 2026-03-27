@@ -76,9 +76,8 @@ async function fetchJSONRaw(key) {
 }
 
 async function fetchJSON(key) {
-  if (!activeGroup) throw new Error('No active group');
-  const groupKey = `groups/${activeGroup.groupId}/${key}`;
-  const res = await fetch(`${BUCKET}/${groupKey}`);
+  const path = activeGroup ? `groups/${activeGroup.groupId}/${key}` : key;
+  const res = await fetch(`${BUCKET}/${path}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`S3 fetch failed: ${res.status}`);
   return res.json();

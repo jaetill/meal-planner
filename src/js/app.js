@@ -44,7 +44,11 @@ async function init() {
     return;
   }
 
-  await loadActiveGroup();
+  try {
+    await loadActiveGroup();
+  } catch (err) {
+    console.error('Could not load group:', err);
+  }
   await Promise.allSettled([loadRecipes(), loadMealPlans()]);
 
   setActiveNav('recipes');

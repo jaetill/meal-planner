@@ -4,14 +4,17 @@ const BUCKET          = 'jaetill-meal-planner';
 const s3              = new S3Client({ region: 'us-east-2' });
 const ALLOWED_ORIGINS = new Set(['https://meals.jaetill.com', 'http://localhost:5173']);
 
+// Default CORS used by individual handlers (origin override applied by main handler)
+const CORS = {
+  'Access-Control-Allow-Origin':  'https://meals.jaetill.com',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Content-Type': 'application/json',
+};
+
 function corsHeaders(event) {
   const origin = event.headers?.origin || event.headers?.Origin || '';
-  return {
-    'Access-Control-Allow-Origin':  ALLOWED_ORIGINS.has(origin) ? origin : 'https://meals.jaetill.com',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Content-Type': 'application/json',
-  };
+  return { ...CORS, 'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : CORS['Access-Control-Allow-Origin'] };
 }
 
 // ── S3 helpers ────────────────────────────────────────────
