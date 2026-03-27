@@ -1,13 +1,84 @@
 import { Auth } from 'aws-amplify';
+import { API_BASE } from '../config.js';
 
-const BUCKET    = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
-const LAMBDA_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
-const IMPORT_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
+const BUCKET      = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
+const SAVE_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
+const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
+const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';
+
+// ── Active group ──────────────────────────────────────────
+
+export let activeGroup = null; // { groupId, name, role }
+export let allGroups   = [];   // all groups the user belongs to
+
+export async function loadActiveGroup() {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+
+  // Fetch user's groups from Lambda
+  const res = await fetch(GROUPS_URL, { headers: { Authorization: token } });
+  if (!res.ok) throw new Error(`Groups fetch failed: ${res.status}`);
+  const { groups } = await res.json();
+  allGroups = groups;
+
+  if (groups.length > 0) {
+    const savedId = localStorage.getItem('activeGroupId');
+    activeGroup   = groups.find(g => g.groupId === savedId) || groups[0];
+    return activeGroup;
+  }
+
+  // First time: create a default group, then migrate existing flat data
+  const createRes = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'create', name: 'My Kitchen' }),
+  });
+  if (!createRes.ok) throw new Error(`Group creation failed: ${createRes.status}`);
+  const { group } = await createRes.json();
+  activeGroup = group;
+
+  // Migrate existing flat-file data into the new group
+  await migrateToGroup(token);
+
+  return activeGroup;
+}
+
+export async function switchGroup(groupId) {
+  const target = allGroups.find(g => g.groupId === groupId);
+  if (!target) throw new Error('Group not found');
+  activeGroup = target;
+  localStorage.setItem('activeGroupId', groupId);
+  await Promise.allSettled([loadRecipes(), loadMealPlans()]);
+}
+
+async function migrateToGroup(token) {
+  try {
+    const [recipesData, plansData] = await Promise.all([
+      fetchJSONRaw('recipes.json'),
+      fetchJSONRaw('meal-plans.json'),
+    ]);
+    if (recipesData?.length > 0 || plansData?.length > 0) {
+      await Promise.all([
+        saveJSON('recipes.json', recipesData || []),
+        saveJSON('meal-plans.json', plansData || []),
+      ]);
+    }
+  } catch { /* non-fatal — migration best-effort */ }
+}
 
 // ── Read (public S3) ──────────────────────────────────────
 
-async function fetchJSON(key) {
+async function fetchJSONRaw(key) {
   const res = await fetch(`${BUCKET}/${key}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`S3 fetch failed: ${res.status}`);
+  return res.json();
+}
+
+async function fetchJSON(key) {
+  if (!activeGroup) throw new Error('No active group');
+  const groupKey = `groups/${activeGroup.groupId}/${key}`;
+  const res = await fetch(`${BUCKET}/${groupKey}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`S3 fetch failed: ${res.status}`);
   return res.json();
@@ -16,13 +87,15 @@ async function fetchJSON(key) {
 // ── Write (via Lambda) ────────────────────────────────────
 
 async function saveJSON(key, data) {
-  if (!LAMBDA_URL) throw new Error('Lambda URL not configured yet.');
   const session = await Auth.currentSession();
   const token   = session.getIdToken().getJwtToken();
-  const res = await fetch(LAMBDA_URL, {
+  const body    = { key, data };
+  if (activeGroup) body.groupId = activeGroup.groupId;
+
+  const res = await fetch(SAVE_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ key, data }),
+    body:    JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
 }
@@ -72,6 +145,51 @@ export async function importRecipeFromUrl(url) {
   const { recipe } = await res.json();
   return recipe;
 }
+
+// ── Group management helpers (used by UI) ─────────────────
+
+export async function createGroupInvite(groupId) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'invite', groupId }),
+  });
+  if (!res.ok) throw new Error(`Invite failed: ${res.status}`);
+  return res.json(); // { code, expiresAt }
+}
+
+export async function joinGroup(code) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'join', code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Join failed: ${res.status}`);
+  }
+  const data = await res.json();
+  if (data.group && !allGroups.some(g => g.groupId === data.group.groupId)) {
+    allGroups.push(data.group);
+  }
+  return data; // { group }
+}
+
+export async function fetchGroupMembers(groupId) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(`${GROUPS_URL}?action=members&groupId=${groupId}`, {
+    headers: { Authorization: token },
+  });
+  if (!res.ok) throw new Error(`Members fetch failed: ${res.status}`);
+  return res.json(); // { members, name }
+}
+
+// ── Data factories ────────────────────────────────────────
 
 export function newRecipe(overrides = {}) {
   return {
