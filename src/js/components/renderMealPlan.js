@@ -1,6 +1,6 @@
 import { recipes } from '../data/index.js';
 import { mealPlans, saveMealPlans } from '../data/index.js';
-import { calcDailyNutrition, populateRecipeNutrition } from '../data/nutrition.js';
+import { calcNutritionByMeal, populateRecipeNutrition } from '../data/nutrition.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 import { renderRecipeView } from './renderRecipeView.js';
@@ -221,24 +221,46 @@ export function renderMealPlan() {
         });
       }
 
-      // Daily nutrition summary
+      // Daily nutrition summary — per meal
       if (dayEntries.length > 0) {
-        const n = calcDailyNutrition(dayEntries, recipes);
-        if (n) {
-          const nutritionRow = document.createElement('div');
-          nutritionRow.className = 'flex gap-3 mt-2 pt-2 border-t border-gray-50';
-          [
-            { label: 'cal',  value: n.calories },
-            { label: 'pro',  value: n.protein,  unit: 'g' },
-            { label: 'fat',  value: n.fat,       unit: 'g' },
-            { label: 'carb', value: n.carbs,     unit: 'g' },
-          ].forEach(({ label, value, unit = '' }) => {
-            const item = document.createElement('span');
-            item.className = 'text-xs text-gray-400';
-            item.textContent = `${value}${unit} ${label}`;
-            nutritionRow.appendChild(item);
+        const byMeal = calcNutritionByMeal(dayEntries, recipes);
+        if (byMeal) {
+          const nutritionSection = document.createElement('div');
+          nutritionSection.className = 'mt-2 pt-2 border-t border-gray-50 space-y-0.5';
+
+          const MEAL_ABBREV = { Breakfast: 'B', Lunch: 'L', Dinner: 'D' };
+          const mealCount = Object.keys(byMeal).length;
+
+          MEALS.forEach(meal => {
+            const n = byMeal[meal];
+            if (!n) return;
+
+            const row = document.createElement('div');
+            row.className = 'flex gap-3 items-center';
+
+            if (mealCount > 1) {
+              const mealLabel = document.createElement('span');
+              mealLabel.className = 'text-xs text-gray-300 w-3 shrink-0';
+              mealLabel.textContent = MEAL_ABBREV[meal] || meal[0];
+              row.appendChild(mealLabel);
+            }
+
+            [
+              { label: 'cal',  value: n.calories },
+              { label: 'pro',  value: n.protein,  unit: 'g' },
+              { label: 'fat',  value: n.fat,       unit: 'g' },
+              { label: 'carb', value: n.carbs,     unit: 'g' },
+            ].forEach(({ label, value, unit = '' }) => {
+              const item = document.createElement('span');
+              item.className = 'text-xs text-gray-400';
+              item.textContent = `${value}${unit} ${label}`;
+              row.appendChild(item);
+            });
+
+            nutritionSection.appendChild(row);
           });
-          card.appendChild(nutritionRow);
+
+          card.appendChild(nutritionSection);
         }
       }
 

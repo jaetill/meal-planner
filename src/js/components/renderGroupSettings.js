@@ -1,4 +1,4 @@
-import { activeGroup, allGroups, createGroupInvite, joinGroup, fetchGroupMembers, switchGroup } from '../data/index.js';
+import { activeGroup, allGroups, currentUsername, createGroupInvite, joinGroup, fetchGroupMembers, switchGroup } from '../data/index.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 
@@ -80,6 +80,13 @@ export function renderGroupSettings() {
   groupIdEl.className = 'text-xs text-gray-400 font-mono';
   groupIdEl.textContent = `ID: ${activeGroup.groupId}`;
   groupCard.appendChild(groupIdEl);
+
+  if (currentUsername) {
+    const usernameEl = document.createElement('p');
+    usernameEl.className = 'text-xs text-gray-400 mt-1';
+    usernameEl.textContent = `Your username: ${currentUsername}`;
+    groupCard.appendChild(usernameEl);
+  }
 
   container.appendChild(groupCard);
 

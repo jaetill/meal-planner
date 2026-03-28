@@ -47,6 +47,35 @@ export function calcNutritionPerServing(recipe) {
   );
 }
 
+// ── Per-meal totals (grouped by meal type) ──────────────────
+
+export function calcNutritionByMeal(entries, recipeList) {
+  const byMeal = {};
+
+  for (const entry of entries) {
+    const recipe = recipeList.find(r => r.id === entry.recipeId);
+    if (!recipe) continue;
+    const perServing = calcNutritionPerServing(recipe);
+    if (!perServing) continue;
+
+    if (!byMeal[entry.meal]) {
+      byMeal[entry.meal] = Object.fromEntries(FIELDS.map(f => [f, 0]));
+    }
+    for (const field of FIELDS) {
+      byMeal[entry.meal][field] += perServing[field] || 0;
+    }
+  }
+
+  if (Object.keys(byMeal).length === 0) return null;
+
+  return Object.fromEntries(
+    Object.entries(byMeal).map(([meal, totals]) => [
+      meal,
+      Object.fromEntries(FIELDS.map(f => [f, Math.round(totals[f])]))
+    ])
+  );
+}
+
 // ── Daily totals across multiple recipe entries ────────────
 
 export function calcDailyNutrition(entries, recipeList) {

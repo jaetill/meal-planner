@@ -1,4 +1,4 @@
-import { recipes, saveRecipes, newRecipe, importRecipeFromUrl } from '../data/index.js';
+import { recipes, saveRecipes, newRecipe, importRecipeFromUrl, fetchIncomingShares, acceptIncomingShare, dismissIncomingShare } from '../data/index.js';
 import { btn } from '../ui/elements.js';
 import { toastSuccess, toastError, toastInfo } from '../ui/toast.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
@@ -30,6 +30,31 @@ export function renderRecipes() {
   header.appendChild(title);
   header.appendChild(btnGroup);
   container.appendChild(header);
+
+  // Check for incoming shared recipes (async, non-blocking)
+  const sharesContainer = document.createElement('div');
+  container.appendChild(sharesContainer);
+  fetchIncomingShares().then(shares => {
+    if (!shares.length) return;
+    sharesContainer.innerHTML = '';
+
+    const banner = document.createElement('button');
+    banner.type = 'button';
+    banner.className = 'w-full text-left bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4 flex items-center justify-between';
+
+    const bannerText = document.createElement('span');
+    bannerText.className = 'text-sm text-green-800 font-medium';
+    bannerText.textContent = `📨 ${shares.length} shared recipe${shares.length !== 1 ? 's' : ''} waiting`;
+
+    const chevron = document.createElement('span');
+    chevron.className = 'text-green-600 text-sm';
+    chevron.textContent = '›';
+
+    banner.appendChild(bannerText);
+    banner.appendChild(chevron);
+    banner.onclick = () => showSharesSheet(shares, sharesContainer);
+    sharesContainer.appendChild(banner);
+  }).catch(() => { /* non-fatal */ });
 
   // Import URL bar (hidden by default)
   const importBar = document.createElement('div');
@@ -166,4 +191,105 @@ export function renderRecipes() {
   }
 
   renderList();
+}
+
+function showSharesSheet(shares, sharesContainer) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[80vh] flex flex-col';
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center justify-between mb-4';
+
+  const title = document.createElement('span');
+  title.className = 'font-bold text-gray-800';
+  title.textContent = 'Shared recipes';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'text-gray-400 text-2xl leading-none';
+  closeBtn.onclick = () => overlay.remove();
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  sheet.appendChild(header);
+
+  const listEl = document.createElement('div');
+  listEl.className = 'overflow-y-auto flex-1 space-y-3';
+
+  function renderList(pendingShares) {
+    listEl.innerHTML = '';
+    if (pendingShares.length === 0) {
+      const done = document.createElement('p');
+      done.className = 'text-sm text-gray-400 text-center py-6';
+      done.textContent = 'All caught up!';
+      listEl.appendChild(done);
+      sharesContainer.innerHTML = '';
+      return;
+    }
+
+    pendingShares.forEach(share => {
+      const card = document.createElement('div');
+      card.className = 'border border-gray-100 rounded-xl p-3';
+
+      const nameEl = document.createElement('p');
+      nameEl.className = 'font-medium text-gray-800 mb-0.5';
+      nameEl.textContent = share.recipe.name;
+
+      const fromEl = document.createElement('p');
+      fromEl.className = 'text-xs text-gray-400 mb-3';
+      fromEl.textContent = `from ${share.fromUsername}`;
+
+      const btnRow = document.createElement('div');
+      btnRow.className = 'flex gap-2';
+
+      const acceptBtn = document.createElement('button');
+      acceptBtn.type = 'button';
+      acceptBtn.textContent = 'Add to my recipes';
+      acceptBtn.className = 'btn btn-primary text-sm flex-1';
+      acceptBtn.onclick = async () => {
+        acceptBtn.disabled = true;
+        acceptBtn.textContent = 'Adding…';
+        try {
+          await acceptIncomingShare(share.shareId);
+          pendingShares = pendingShares.filter(s => s.shareId !== share.shareId);
+          renderList(pendingShares);
+        } catch {
+          acceptBtn.disabled = false;
+          acceptBtn.textContent = 'Add to my recipes';
+        }
+      };
+
+      const dismissBtn = document.createElement('button');
+      dismissBtn.type = 'button';
+      dismissBtn.textContent = 'Dismiss';
+      dismissBtn.className = 'btn btn-ghost text-sm text-gray-400';
+      dismissBtn.onclick = async () => {
+        dismissBtn.disabled = true;
+        try {
+          await dismissIncomingShare(share.shareId);
+          pendingShares = pendingShares.filter(s => s.shareId !== share.shareId);
+          renderList(pendingShares);
+        } catch {
+          dismissBtn.disabled = false;
+        }
+      };
+
+      btnRow.appendChild(acceptBtn);
+      btnRow.appendChild(dismissBtn);
+      card.appendChild(nameEl);
+      card.appendChild(fromEl);
+      card.appendChild(btnRow);
+      listEl.appendChild(card);
+    });
+  }
+
+  renderList(shares);
+  sheet.appendChild(listEl);
+  overlay.appendChild(sheet);
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
 }

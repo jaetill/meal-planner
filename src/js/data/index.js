@@ -10,10 +10,13 @@ const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod
 
 export let activeGroup = null; // { groupId, name, role }
 export let allGroups   = [];   // all groups the user belongs to
+export let currentUsername = null;
 
 export async function loadActiveGroup() {
   const session = await Auth.currentSession();
   const token   = session.getIdToken().getJwtToken();
+  const user = await Auth.currentAuthenticatedUser();
+  currentUsername = user.username;
 
   // Fetch user's groups from Lambda
   const res = await fetch(GROUPS_URL, { headers: { Authorization: token } });
@@ -201,6 +204,60 @@ export async function fetchGroupMembers(groupId) {
   });
   if (!res.ok) throw new Error(`Members fetch failed: ${res.status}`);
   return res.json(); // { members, name }
+}
+
+export async function shareRecipe(recipe, targetUsername) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'share', targetUsername, recipe }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Share failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchIncomingShares() {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(`${GROUPS_URL}?action=incoming`, { headers: { Authorization: token } });
+  if (!res.ok) return [];
+  const { shares } = await res.json();
+  return shares || [];
+}
+
+export async function acceptIncomingShare(shareId) {
+  if (!activeGroup) throw new Error('No active group');
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'acceptShare', shareId, groupId: activeGroup.groupId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Accept failed: ${res.status}`);
+  }
+  const { recipe } = await res.json();
+  // Update in-memory recipes
+  recipes.push(recipe);
+  return recipe;
+}
+
+export async function dismissIncomingShare(shareId) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(GROUPS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action: 'dismissShare', shareId }),
+  });
+  if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`);
 }
 
 // ── Data factories ────────────────────────────────────────

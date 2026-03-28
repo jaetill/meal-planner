@@ -163,6 +163,84 @@ async function handleMembers(userId, groupId) {
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ members: info.members, name: info.name }) };
 }
 
+// POST /groups { action: 'share', targetUsername, recipe }
+async function handleShare(userId, body) {
+  const { targetUsername, recipe } = body;
+  if (!targetUsername || !recipe?.name) {
+    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'targetUsername and recipe required' }) };
+  }
+
+  const indexKey = `incoming/${targetUsername}/index.json`;
+  const index = (await s3Get(indexKey)) || [];
+
+  const share = {
+    shareId:      crypto.randomUUID(),
+    recipe,
+    fromUsername: userId,
+    sharedAt:     Date.now(),
+  };
+
+  index.push(share);
+  await s3Put(indexKey, index);
+
+  return { statusCode: 200, headers: CORS, body: JSON.stringify({ shareId: share.shareId }) };
+}
+
+// GET /groups?action=incoming
+async function handleIncoming(userId) {
+  const shares = (await s3Get(`incoming/${userId}/index.json`)) || [];
+  return { statusCode: 200, headers: CORS, body: JSON.stringify({ shares }) };
+}
+
+// POST /groups { action: 'acceptShare', shareId, groupId }
+async function handleAcceptShare(userId, body) {
+  const { shareId, groupId } = body;
+  if (!shareId || !groupId) {
+    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'shareId and groupId required' }) };
+  }
+
+  const userGroups = await getUserGroups(userId);
+  if (!userGroups.some(g => g.groupId === groupId)) {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Not a member of that group' }) };
+  }
+
+  const indexKey = `incoming/${userId}/index.json`;
+  const index = (await s3Get(indexKey)) || [];
+  const share = index.find(s => s.shareId === shareId);
+  if (!share) {
+    return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'Share not found' }) };
+  }
+
+  const groupRecipes = (await s3Get(`groups/${groupId}/recipes.json`)) || [];
+  const newRecipe = {
+    ...share.recipe,
+    id:        crypto.randomUUID(),
+    createdAt: Date.now(),
+  };
+  groupRecipes.push(newRecipe);
+  await s3Put(`groups/${groupId}/recipes.json`, groupRecipes);
+
+  const updatedIndex = index.filter(s => s.shareId !== shareId);
+  await s3Put(indexKey, updatedIndex);
+
+  return { statusCode: 200, headers: CORS, body: JSON.stringify({ recipe: newRecipe }) };
+}
+
+// POST /groups { action: 'dismissShare', shareId }
+async function handleDismissShare(userId, body) {
+  const { shareId } = body;
+  if (!shareId) {
+    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'shareId required' }) };
+  }
+
+  const indexKey = `incoming/${userId}/index.json`;
+  const index = (await s3Get(indexKey)) || [];
+  const updatedIndex = index.filter(s => s.shareId !== shareId);
+  await s3Put(indexKey, updatedIndex);
+
+  return { statusCode: 200, headers: CORS, body: JSON.stringify({ dismissed: shareId }) };
+}
+
 // ── Main handler ──────────────────────────────────────────
 
 exports.handler = async (event) => {
@@ -180,18 +258,21 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'GET') {
       const action  = event.queryStringParameters?.action;
       const groupId = event.queryStringParameters?.groupId;
-      result = action === 'members'
-        ? await handleMembers(userId, groupId)
-        : await handleList(userId);
+      if (action === 'members')       result = await handleMembers(userId, groupId);
+      else if (action === 'incoming') result = await handleIncoming(userId);
+      else                            result = await handleList(userId);
     } else if (event.httpMethod === 'POST') {
       let body;
       try { body = JSON.parse(event.body || '{}'); }
       catch { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
 
       const { action } = body;
-      if (action === 'create')      result = await handleCreate(userId, body);
-      else if (action === 'invite') result = await handleInvite(userId, body);
-      else if (action === 'join')   result = await handleJoin(userId, body);
+      if (action === 'create')             result = await handleCreate(userId, body);
+      else if (action === 'invite')        result = await handleInvite(userId, body);
+      else if (action === 'join')          result = await handleJoin(userId, body);
+      else if (action === 'share')         result = await handleShare(userId, body);
+      else if (action === 'acceptShare')   result = await handleAcceptShare(userId, body);
+      else if (action === 'dismissShare')  result = await handleDismissShare(userId, body);
       else return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Unknown action' }) };
     } else {
       return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method not allowed' }) };

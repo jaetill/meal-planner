@@ -2,6 +2,7 @@ import { btn } from '../ui/elements.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipes } from './renderRecipes.js';
 import { populateRecipeNutrition, calcNutritionPerServing } from '../data/nutrition.js';
+import { shareRecipe } from '../data/index.js';
 
 export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
@@ -17,10 +18,15 @@ export function renderRecipeView(recipe, onBack) {
   const editBtn = btn('Edit', 'secondary');
   editBtn.onclick = () => renderRecipeForm(recipe, () => renderRecipeView(recipe));
 
+  const shareBtn = btn('Share', 'ghost');
+  shareBtn.className += ' text-xs';
+  shareBtn.onclick = () => showShareSheet(recipe);
+
   const spacer = document.createElement('div');
   spacer.className = 'flex-1';
 
   header.appendChild(backBtn);
+  header.appendChild(shareBtn);
   header.appendChild(spacer);
   header.appendChild(editBtn);
   container.appendChild(header);
@@ -202,4 +208,75 @@ export function renderRecipeView(recipe, onBack) {
     });
     container.appendChild(dirList);
   }
+}
+
+function showShareSheet(recipe) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4';
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center justify-between mb-4';
+
+  const title = document.createElement('span');
+  title.className = 'font-bold text-gray-800';
+  title.textContent = `Share "${recipe.name}"`;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'text-gray-400 text-2xl leading-none';
+  closeBtn.onclick = () => overlay.remove();
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  sheet.appendChild(header);
+
+  const desc = document.createElement('p');
+  desc.className = 'text-sm text-gray-500 mb-3';
+  desc.textContent = 'Enter the username of the person you want to share with. They\'ll see it in their Recipes tab.';
+  sheet.appendChild(desc);
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Recipient\'s username';
+  input.className = 'field mb-3';
+  sheet.appendChild(input);
+
+  const statusEl = document.createElement('p');
+  statusEl.className = 'text-sm mb-3 hidden';
+  sheet.appendChild(statusEl);
+
+  const sendBtn = document.createElement('button');
+  sendBtn.type = 'button';
+  sendBtn.textContent = 'Send recipe';
+  sendBtn.className = 'btn btn-primary w-full';
+
+  sendBtn.onclick = async () => {
+    const target = input.value.trim();
+    if (!target) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+    statusEl.className = 'text-sm mb-3';
+    try {
+      await shareRecipe(recipe, target);
+      statusEl.textContent = `✓ Sent to ${target}!`;
+      statusEl.className = 'text-sm mb-3 text-green-600';
+      sendBtn.textContent = 'Sent';
+      input.value = '';
+    } catch (err) {
+      statusEl.textContent = err.message || 'Could not send. Check the username and try again.';
+      statusEl.className = 'text-sm mb-3 text-red-500';
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send recipe';
+    }
+  };
+
+  sheet.appendChild(sendBtn);
+  overlay.appendChild(sheet);
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  input.focus();
 }
