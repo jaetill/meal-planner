@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const https = require('https');
 
 const BUCKET       = 'jaetill-meal-planner';
@@ -14,6 +14,25 @@ const CORS = {
 };
 
 // ── Helpers ───────────────────────────────────────────────
+
+function parseDurationFromText(text) {
+  if (!text) return null;
+  const hourMin = text.match(/(\d+)\s*(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:minute|min)s?/i);
+  if (hourMin) return parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60;
+  const hour = text.match(/\b(?:for|about)\s+(\d+)\s*(?:hour|hr)s?|(\d+)\s*(?:hour|hr)s?/i);
+  if (hour) return parseInt(hour[1] || hour[2]) * 3600;
+  const min = text.match(/\b(?:for|about)\s+(\d+)\s*(?:minute|min)s?|(\d+)\s*(?:minute|min)s?/i);
+  if (min) return parseInt(min[1] || min[2]) * 60;
+  const sec = text.match(/\b(?:for|about)\s+(\d+)\s*(?:second|sec)s?|(\d+)\s*(?:second|sec)s?/i);
+  if (sec) return parseInt(sec[1] || sec[2]);
+  return null;
+}
+
+async function s3Get(key) {
+  const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  const body = await res.Body.transformToString();
+  return JSON.parse(body);
+}
 
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
@@ -184,9 +203,9 @@ function parseSchemaRecipe(schema) {
   const ingredients = (schema.recipeIngredient || []).map(parseIngredientLine);
 
   const directions = (schema.recipeInstructions || []).map(step => {
-    if (typeof step === 'string') return step;
-    return step.text || step.name || '';
-  }).filter(Boolean);
+    const text = typeof step === 'string' ? step : (step.text || step.name || '');
+    return { text, duration: parseDurationFromText(text) };
+  }).filter(s => s.text);
 
   const image = Array.isArray(schema.image)
     ? (schema.image[0]?.url || schema.image[0])
@@ -300,7 +319,7 @@ async function handleImport(event) {
     } else {
       const text = stripHtml(html);
       recipe = await parseWithClaude(text, url);
-      // Normalize ingredients to include id and nutrition fields
+      // Normalize ingredients and directions
       recipe.ingredients = (recipe.ingredients || []).map(ing => ({
         id: crypto.randomUUID(),
         quantity: ing.quantity || '',
@@ -310,6 +329,10 @@ async function handleImport(event) {
         packageSize: ing.packageSize || '',
         calories: null, protein: null, fat: null, carbs: null,
       }));
+      recipe.directions = (recipe.directions || []).map(d => {
+        const text = typeof d === 'string' ? d : (d.text || '');
+        return { text, duration: parseDurationFromText(text) };
+      }).filter(d => d.text);
     }
 
     recipe.id        = crypto.randomUUID();
@@ -321,6 +344,56 @@ async function handleImport(event) {
   }
 }
 
+async function handleCookSession(event) {
+  const userId = event.requestContext?.authorizer?.claims?.['cognito:username'];
+  if (!userId) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
+
+  let body;
+  try { body = JSON.parse(event.body || '{}'); }
+  catch { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
+
+  const s3Key = `cook-sessions/${userId}.json`;
+
+  if (body.action === 'start') {
+    const { recipe } = body;
+    if (!recipe) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing recipe' }) };
+    const session = {
+      recipeId:    recipe.id,
+      recipeName:  recipe.name,
+      stepIndex:   0,
+      steps:       (recipe.directions || []).map(d => {
+        const text = typeof d === 'string' ? d : (d.text || '');
+        return { text, duration: parseDurationFromText(text) };
+      }).filter(d => d.text),
+      ingredients: (recipe.ingredients || []).map(({ quantity, unit, name }) => ({ quantity, unit, name })),
+      startedAt:   Date.now(),
+    };
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+    }));
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ session }) };
+  }
+
+  let session;
+  try { session = await s3Get(s3Key); }
+  catch { return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'No active session' }) }; }
+
+  if (body.action === 'advance') {
+    session.stepIndex = Math.min(session.stepIndex + 1, session.steps.length - 1);
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+    }));
+  } else if (body.action === 'back') {
+    session.stepIndex = Math.max(session.stepIndex - 1, 0);
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+    }));
+  }
+  // 'get' action falls through and returns current session
+
+  return { statusCode: 200, headers: CORS, body: JSON.stringify({ session }) };
+}
+
 // ── Main handler ──────────────────────────────────────────
 
 exports.handler = async (event) => {
@@ -329,6 +402,7 @@ exports.handler = async (event) => {
   }
 
   const path = event.path || '';
-  if (path.endsWith('/import')) return handleImport(event);
+  if (path.endsWith('/import'))  return handleImport(event);
+  if (path.endsWith('/cook'))    return handleCookSession(event);
   return handleSave(event);
 };

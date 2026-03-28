@@ -1,8 +1,9 @@
 import { btn } from '../ui/elements.js';
 import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipes } from './renderRecipes.js';
+import { renderCookMode } from './renderCookMode.js';
 import { populateRecipeNutrition, calcNutritionPerServing } from '../data/nutrition.js';
-import { shareRecipe } from '../data/index.js';
+import { shareRecipe, formatDuration } from '../data/index.js';
 
 export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
@@ -18,6 +19,9 @@ export function renderRecipeView(recipe, onBack) {
   const editBtn = btn('Edit', 'secondary');
   editBtn.onclick = () => renderRecipeForm(recipe, () => renderRecipeView(recipe));
 
+  const cookBtn = btn('Cook', 'primary');
+  cookBtn.onclick = () => renderCookMode(recipe, () => renderRecipeView(recipe));
+
   const shareBtn = btn('Share', 'ghost');
   shareBtn.className += ' text-xs';
   shareBtn.onclick = () => showShareSheet(recipe);
@@ -28,6 +32,7 @@ export function renderRecipeView(recipe, onBack) {
   header.appendChild(backBtn);
   header.appendChild(shareBtn);
   header.appendChild(spacer);
+  header.appendChild(cookBtn);
   header.appendChild(editBtn);
   container.appendChild(header);
 
@@ -191,7 +196,10 @@ export function renderRecipeView(recipe, onBack) {
     const dirList = document.createElement('ol');
     dirList.className = 'space-y-3 mb-5';
     recipe.directions.forEach((step, i) => {
-      if (!step.trim()) return;
+      const stepText = typeof step === 'string' ? step : step.text;
+      const duration = typeof step === 'string' ? null : step.duration;
+      if (!stepText?.trim()) return;
+
       const li = document.createElement('li');
       li.className = 'flex gap-3 text-sm text-gray-700';
 
@@ -199,11 +207,21 @@ export function renderRecipeView(recipe, onBack) {
       num.className = 'font-bold text-green-600 shrink-0 w-5';
       num.textContent = `${i + 1}.`;
 
+      const body = document.createElement('div');
+
       const text = document.createElement('span');
-      text.textContent = step;
+      text.textContent = stepText;
+      body.appendChild(text);
+
+      if (duration) {
+        const badge = document.createElement('span');
+        badge.className = 'block text-xs text-green-600 mt-0.5';
+        badge.textContent = `⏱ ${formatDuration(duration)}`;
+        body.appendChild(badge);
+      }
 
       li.appendChild(num);
-      li.appendChild(text);
+      li.appendChild(body);
       dirList.appendChild(li);
     });
     container.appendChild(dirList);

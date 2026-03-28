@@ -5,6 +5,7 @@ const BUCKET      = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
 const SAVE_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
 const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
 const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';
+const COOK_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/cook';
 
 // ── Active group ──────────────────────────────────────────
 
@@ -259,6 +260,48 @@ export async function dismissIncomingShare(shareId) {
   });
   if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`);
 }
+
+// ── Duration helpers ──────────────────────────────────────
+
+export function parseDurationFromText(text) {
+  if (!text) return null;
+  const hourMin = text.match(/(\d+)\s*(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:minute|min)s?/i);
+  if (hourMin) return parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60;
+  const hour = text.match(/\b(?:for|about)\s+(\d+)\s*(?:hour|hr)s?|(\d+)\s*(?:hour|hr)s?/i);
+  if (hour) return parseInt(hour[1] || hour[2]) * 3600;
+  const min = text.match(/\b(?:for|about)\s+(\d+)\s*(?:minute|min)s?|(\d+)\s*(?:minute|min)s?/i);
+  if (min) return parseInt(min[1] || min[2]) * 60;
+  const sec = text.match(/\b(?:for|about)\s+(\d+)\s*(?:second|sec)s?|(\d+)\s*(?:second|sec)s?/i);
+  if (sec) return parseInt(sec[1] || sec[2]);
+  return null;
+}
+
+export function formatDuration(seconds) {
+  if (!seconds) return '';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+// ── Cook session ──────────────────────────────────────────
+
+async function cookPost(action, extra = {}) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(COOK_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ action, ...extra }),
+  });
+  if (!res.ok) throw new Error(`Cook session error: ${res.status}`);
+  return res.json();
+}
+
+export const startCookSession   = (recipe) => cookPost('start', { recipe });
+export const advanceCookSession = ()       => cookPost('advance');
+export const backCookSession    = ()       => cookPost('back');
 
 // ── Data factories ────────────────────────────────────────
 

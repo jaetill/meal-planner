@@ -1,4 +1,4 @@
-import { recipes, saveRecipes, newRecipe, newIngredient } from '../data/index.js';
+import { recipes, saveRecipes, newRecipe, newIngredient, parseDurationFromText, formatDuration } from '../data/index.js';
 import { btn, input } from '../ui/elements.js';
 import { toastSuccess, toastError } from '../ui/toast.js';
 
@@ -15,6 +15,11 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
   const recipe = existingRecipe
     ? JSON.parse(JSON.stringify(existingRecipe)) // work on a copy
     : newRecipe();
+
+  // Normalize directions to {text, duration} objects (backward compat with string[])
+  recipe.directions = (recipe.directions || []).map(d =>
+    typeof d === 'string' ? { text: d, duration: parseDurationFromText(d) } : d
+  );
 
   const container = document.getElementById('app-content');
   container.innerHTML = '';
@@ -189,6 +194,9 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
   function renderDirections() {
     dirList.innerHTML = '';
     recipe.directions.forEach((step, i) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'space-y-1';
+
       const row = document.createElement('div');
       row.className = 'flex gap-2 items-start';
 
@@ -197,11 +205,23 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       num.textContent = `${i + 1}.`;
 
       const textarea = document.createElement('textarea');
-      textarea.value = step;
+      textarea.value = step.text;
       textarea.placeholder = 'Describe this step…';
       textarea.className = 'field flex-1 resize-none';
       textarea.rows = 2;
-      textarea.oninput = e => { recipe.directions[i] = e.target.value; };
+      textarea.oninput = e => {
+        const text = e.target.value;
+        recipe.directions[i] = { text, duration: parseDurationFromText(text) };
+        // Update duration badge
+        const badge = wrapper.querySelector('.duration-badge');
+        const dur = parseDurationFromText(text);
+        if (dur && badge) {
+          badge.textContent = `⏱ ${formatDuration(dur)}`;
+          badge.classList.remove('hidden');
+        } else if (badge) {
+          badge.classList.add('hidden');
+        }
+      };
 
       const delBtn = btn('×', 'ghost');
       delBtn.className += ' shrink-0 text-gray-400 mt-1';
@@ -213,7 +233,15 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       row.appendChild(num);
       row.appendChild(textarea);
       row.appendChild(delBtn);
-      dirList.appendChild(row);
+      wrapper.appendChild(row);
+
+      // Duration badge (read-only, auto-detected)
+      const durBadge = document.createElement('span');
+      durBadge.className = `duration-badge text-xs text-green-600 pl-7${step.duration ? '' : ' hidden'}`;
+      durBadge.textContent = step.duration ? `⏱ ${formatDuration(step.duration)}` : '';
+      wrapper.appendChild(durBadge);
+
+      dirList.appendChild(wrapper);
     });
   }
 
@@ -222,7 +250,7 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
   const addDirBtn = btn('+ Add Step', 'ghost');
   addDirBtn.className += ' text-sm mt-1';
   addDirBtn.onclick = () => {
-    recipe.directions.push('');
+    recipe.directions.push({ text: '', duration: null });
     renderDirections();
   };
   dirSection.appendChild(addDirBtn);

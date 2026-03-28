@@ -39,3 +39,17 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id E301SUJKLJO7A7 \
             --paths "/index.html" "/login.html"
+      - name: Deploy save Lambda
+        run: |
+          zip -j lambda/save.zip lambda/save.js
+          aws lambda update-function-code \
+            --function-name MealPlannerSave \
+            --zip-file fileb://lambda/save.zip \
+            --region us-east-2
+      - name: Deploy alexa Lambda
+        run: |
+          zip -j lambda/alexa.zip lambda/alexa.js
+          aws lambda update-function-code \
+            --function-name meal-planner-alexa \
+            --zip-file fileb://lambda/alexa.zip \
+            --region us-east-2
