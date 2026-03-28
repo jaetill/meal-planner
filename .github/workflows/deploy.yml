@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to S3 + CloudFront
 
 on:
   push:
@@ -6,15 +6,11 @@ on:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,9 +19,23 @@ jobs:
           cache: npm
       - run: npm ci --legacy-peer-deps
       - run: npm run build
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
-          path: dist
-      - uses: actions/deploy-pages@v4
-        id: deployment
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Sync HTML to S3 (no-cache)
+        run: |
+          aws s3 sync dist/ s3://jaetill-meal-planner/ \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+      - name: Sync assets to S3 (immutable)
+        run: |
+          aws s3 sync dist/assets/ s3://jaetill-meal-planner/assets/ \
+            --cache-control "max-age=31536000, immutable"
+      - name: Invalidate CloudFront HTML
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E301SUJKLJO7A7 \
+            --paths "/index.html" "/login.html"
