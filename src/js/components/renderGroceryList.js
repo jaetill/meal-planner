@@ -91,6 +91,7 @@ function buildGroceryList(dateKeys, defaultServings) {
           name:        ing.name,
           unit:        ing.unit || '',
           preparation: ing.preparation || '',
+          section:     ing.section || '',
           totalQty:    scaledQty,
           rawQty:      ing.quantity || '',
         });
@@ -836,16 +837,48 @@ export function renderGroceryList() {
       }
 
     } else {
-      // ── Flat render (no store, or aisles still loading) ─
-      // Prices show as cached or '···'; re-renders as aisle view once all data loads.
-      const card = document.createElement('div');
-      card.className = 'card divide-y divide-gray-50 mb-5';
-
+      // ── Section-grouped render (no store, or aisles still loading) ─
+      // Groups by ingredient section; re-renders as aisle view once Kroger data loads.
+      const sectionMap = new Map();
       for (const item of items) {
-        card.appendChild(makeItemRow(item, store, checked));
+        const key = item.section || '';
+        if (!sectionMap.has(key)) sectionMap.set(key, []);
+        sectionMap.get(key).push(item);
       }
 
-      container.appendChild(card);
+      const hasSections = sectionMap.size > 1 || (sectionMap.size === 1 && !sectionMap.has(''));
+      if (hasSections) {
+        const sortedSections = [...sectionMap.entries()].sort(([a], [b]) => {
+          if (a === '') return 1;
+          if (b === '') return -1;
+          return a.localeCompare(b);
+        });
+
+        for (const [section, groupItems] of sortedSections) {
+          const groupEl = document.createElement('div');
+          groupEl.className = 'mb-5';
+
+          const groupLabel = document.createElement('div');
+          groupLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
+          groupLabel.textContent = section || 'Other';
+          groupEl.appendChild(groupLabel);
+
+          const card = document.createElement('div');
+          card.className = 'card divide-y divide-gray-50';
+          for (const item of groupItems) {
+            card.appendChild(makeItemRow(item, store, checked));
+          }
+          groupEl.appendChild(card);
+          container.appendChild(groupEl);
+        }
+      } else {
+        const card = document.createElement('div');
+        card.className = 'card divide-y divide-gray-50 mb-5';
+        for (const item of items) {
+          card.appendChild(makeItemRow(item, store, checked));
+        }
+        container.appendChild(card);
+      }
 
       if (store) {
         const allItems = [
