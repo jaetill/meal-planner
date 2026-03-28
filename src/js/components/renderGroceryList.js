@@ -835,8 +835,6 @@ export function renderGroceryList() {
         container.appendChild(groupEl);
       }
 
-      renderStaplesSection(container, store, checkedStaples);
-
     } else {
       // ── Flat render (no store, or aisles still loading) ─
       // Prices show as cached or '···'; re-renders as aisle view once all data loads.
