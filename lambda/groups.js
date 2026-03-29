@@ -35,6 +35,7 @@ async function s3Put(key, data) {
     Bucket: BUCKET, Key: key,
     Body: JSON.stringify(data),
     ContentType: 'application/json',
+    CacheControl: 'no-cache, no-store, must-revalidate',
   }));
 }
 

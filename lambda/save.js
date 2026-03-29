@@ -326,6 +326,7 @@ async function handleSave(event) {
       Bucket: BUCKET, Key: s3Key,
       Body: JSON.stringify(data),
       ContentType: 'application/json',
+      CacheControl: 'no-cache, no-store, must-revalidate',
     }));
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ saved: s3Key }) };
   } catch (err) {
@@ -406,7 +407,7 @@ async function handleCookSession(event) {
       startedAt:   Date.now(),
     };
     await s3.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json', CacheControl: 'no-cache, no-store, must-revalidate',
     }));
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ session }) };
   }
@@ -418,12 +419,12 @@ async function handleCookSession(event) {
   if (body.action === 'advance') {
     session.stepIndex = Math.min(session.stepIndex + 1, session.steps.length - 1);
     await s3.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json', CacheControl: 'no-cache, no-store, must-revalidate',
     }));
   } else if (body.action === 'back') {
     session.stepIndex = Math.max(session.stepIndex - 1, 0);
     await s3.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json',
+      Bucket: BUCKET, Key: s3Key, Body: JSON.stringify(session), ContentType: 'application/json', CacheControl: 'no-cache, no-store, must-revalidate',
     }));
   }
   // 'get' action falls through and returns current session
