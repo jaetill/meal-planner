@@ -54,6 +54,42 @@ function httpsGet(url) {
   });
 }
 
+function fetchImageBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MealPlannerBot/1.0)' },
+    }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchImageBuffer(res.headers.location).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve({
+        buffer:      Buffer.concat(chunks),
+        contentType: res.headers['content-type']?.split(';')[0] || 'image/jpeg',
+      }));
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('Image fetch timeout')); });
+  });
+}
+
+async function storePhoto(photoUrl, recipeId) {
+  if (!photoUrl) return null;
+  try {
+    const { buffer, contentType } = await fetchImageBuffer(photoUrl);
+    if (!contentType.startsWith('image/')) return null;
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET, Key: `photos/${recipeId}`,
+      Body: buffer, ContentType: contentType,
+    }));
+    return `https://meals.jaetill.com/photos/${recipeId}`;
+  } catch {
+    return null;
+  }
+}
+
 function callClaude(prompt) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
@@ -337,6 +373,7 @@ async function handleImport(event) {
 
     recipe.id        = crypto.randomUUID();
     recipe.createdAt = Date.now();
+    recipe.photo     = await storePhoto(recipe.photo, recipe.id);
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ recipe }) };
   } catch (err) {
