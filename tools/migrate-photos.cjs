@@ -21,7 +21,10 @@ async function s3Get(key) {
 
 async function s3Put(key, data, contentType = 'application/json') {
   const body = contentType === 'application/json' ? JSON.stringify(data) : data;
-  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: contentType }));
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET, Key: key, Body: body, ContentType: contentType,
+    CacheControl: 'no-cache, no-store, must-revalidate',
+  }));
 }
 
 function fetchImageBuffer(url, redirects = 0) {
