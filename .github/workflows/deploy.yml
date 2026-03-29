@@ -53,3 +53,24 @@ jobs:
             --function-name meal-planner-alexa \
             --zip-file fileb://lambda/alexa.zip \
             --region us-east-2
+      - name: Deploy groups Lambda
+        run: |
+          zip -j lambda/groups.zip lambda/groups.js
+          aws lambda update-function-code \
+            --function-name meal-planner-groups \
+            --zip-file fileb://lambda/groups.zip \
+            --region us-east-2
+      - name: Deploy nutrition Lambda
+        run: |
+          zip -j lambda/nutrition.zip lambda/nutrition.js
+          aws lambda update-function-code \
+            --function-name meal-planner-nutrition \
+            --zip-file fileb://lambda/nutrition.zip \
+            --region us-east-2
+      - name: Deploy kroger Lambda
+        run: |
+          zip -j lambda/kroger.zip lambda/kroger.js
+          aws lambda update-function-code \
+            --function-name meal-planner-kroger \
+            --zip-file fileb://lambda/kroger.zip \
+            --region us-east-2
