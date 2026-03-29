@@ -1,7 +1,7 @@
 import { Auth } from 'aws-amplify';
 import { API_BASE } from '../config.js';
 
-const BUCKET      = 'https://jaetill-meal-planner.s3.us-east-2.amazonaws.com';
+const BUCKET      = 'https://meals.jaetill.com';
 const SAVE_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
 const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
 const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';

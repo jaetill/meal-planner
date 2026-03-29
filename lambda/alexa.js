@@ -9,14 +9,12 @@
  * 2. In Alexa Developer Console (developer.amazon.com):
  *    - Create a custom skill named "Meal Planner" (invocation: "meal planner")
  *    - Set endpoint to this Lambda ARN
- *    - Add AMAZON_ALEXA_ACCOUNT_LINKING permission if you want account linking
  *    - Under Permissions, enable "Alexa Timer API (read/write)"
- *    - Add the interaction model intents below (or paste the JSON into the skill's
- *      JSON editor under Build > Interaction Model > JSON Editor)
+ *    - Paste the interaction model JSON into Build > Interaction Model > JSON Editor
  *    - Save and Build the model
  * 3. To test: say "Alexa, open meal planner", then "what's next"
  *
- * Interaction model JSON (paste into JSON Editor):
+ * Interaction model JSON:
  * {
  *   "interactionModel": {
  *     "languageModel": {
