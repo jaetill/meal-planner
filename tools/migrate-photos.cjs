@@ -70,11 +70,18 @@ async function migratePhoto(recipe) {
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function run() {
-  console.log('Loading recipes.json...');
-  const recipes = await s3Get('recipes.json');
+async function listGroupRecipeKeys() {
+  const { S3Client: _S3, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+  const res = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'groups/' }));
+  return (res.Contents || [])
+    .map(o => o.Key)
+    .filter(k => k.endsWith('/recipes.json'));
+}
+
+async function migrateFile(key) {
+  const recipes = await s3Get(key);
   const toMigrate = recipes.filter(r => r.photo && !r.photo.startsWith(CF_BASE));
-  console.log(`${recipes.length} recipes total, ${toMigrate.length} with external photos to migrate.\n`);
+  console.log(`\n${key}: ${recipes.length} recipes, ${toMigrate.length} to migrate`);
 
   let updated = 0, cleared = 0;
   const BATCH = 5;
@@ -82,19 +89,28 @@ async function run() {
   for (let i = 0; i < recipes.length; i++) {
     const recipe = recipes[i];
     if (!recipe.photo || recipe.photo.startsWith(CF_BASE)) continue;
-
     const newUrl = await migratePhoto(recipe);
     recipes[i] = { ...recipe, photo: newUrl };
     if (newUrl) updated++; else cleared++;
-
-    // Rate-limit: pause between batches
     if ((updated + cleared) % BATCH === 0) await sleep(500);
   }
 
-  console.log(`\nDone. ${updated} photos stored, ${cleared} cleared (dead URLs).`);
-  console.log('Saving updated recipes.json...');
-  await s3Put('recipes.json', recipes);
-  console.log('Complete.');
+  console.log(`  → ${updated} stored, ${cleared} cleared`);
+  await s3Put(key, recipes);
+}
+
+async function run() {
+  console.log('Migrating root recipes.json...');
+  await migrateFile('recipes.json');
+
+  console.log('\nFinding group recipe files...');
+  const groupKeys = await listGroupRecipeKeys();
+  console.log(`Found ${groupKeys.length} group recipe file(s).`);
+  for (const key of groupKeys) {
+    await migrateFile(key);
+  }
+
+  console.log('\nDone.');
 }
 
 run().catch(err => { console.error(err); process.exit(1); });
