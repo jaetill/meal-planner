@@ -73,7 +73,7 @@ async function migrateToGroup(token) {
 // ── Read (public S3) ──────────────────────────────────────
 
 async function fetchJSONRaw(key) {
-  const res = await fetch(`${BUCKET}/${key}`, { cache: 'no-store' });
+  const res = await fetch(`${BUCKET}/${key}`, { cache: 'no-cache' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`S3 fetch failed: ${res.status}`);
   return res.json();
@@ -81,7 +81,7 @@ async function fetchJSONRaw(key) {
 
 async function fetchJSON(key) {
   const path = activeGroup ? `groups/${activeGroup.groupId}/${key}` : key;
-  const res = await fetch(`${BUCKET}/${path}`, { cache: 'no-store' });
+  const res = await fetch(`${BUCKET}/${path}`, { cache: 'no-cache' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`S3 fetch failed: ${res.status}`);
   return res.json();
