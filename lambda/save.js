@@ -1,3 +1,11 @@
+// Lambda: MealPlannerSave — handles three routes via path detection
+//   POST /save   — write recipes.json, meal-plans.json, or staples.json for a group
+//   POST /import — fetch a URL, extract Schema.org recipe, fall back to Claude
+//   POST /cook   — read/write cook session at cook-sessions/{userId}.json
+//
+// Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
+// Environment variables: ANTHROPIC_API_KEY
+
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const https = require('https');
 

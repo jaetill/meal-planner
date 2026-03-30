@@ -1,3 +1,18 @@
+// Lambda: meal-planner-groups — all group management and cross-account recipe sharing
+//   GET  /groups                        — list groups for the calling user
+//   POST /groups { action: 'create' }   — create a new group
+//   POST /groups { action: 'invite' }   — generate an invite code
+//   POST /groups { action: 'join' }     — join via invite code
+//   POST /groups { action: 'share' }    — send a recipe to another user's incoming/
+//   POST /groups { action: 'acceptShare' } — copy incoming share into a group
+//   POST /groups { action: 'dismissShare' } — remove incoming share
+//   GET  /groups?action=members         — list members of a group
+//   GET  /groups?action=incoming        — list incoming recipe shares for the user
+//
+// S3 layout: groups/{groupId}/info.json, users/{userId}/groups.json,
+//            incoming/{userId}/index.json, codes/{code}.json
+// Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
+
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const BUCKET          = 'jaetill-meal-planner';
