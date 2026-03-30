@@ -8,6 +8,8 @@ import { shareRecipe, shareRecipeByEmail, formatDuration } from '../data/index.j
 export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
   container.innerHTML = '';
+  container.scrollTop = 0;
+  window.scrollTo(0, 0);
 
   // Header
   const header = document.createElement('div');
