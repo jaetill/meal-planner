@@ -7,7 +7,7 @@
  *    - Role: MealPlannerSave-role-c47ma2hi (already has S3 access)
  *    - Env var: ALEXA_USERNAME = <your cognito username>
  * 2. In Alexa Developer Console (developer.amazon.com):
- *    - Create a custom skill named "Meal Planner" (invocation: "meal planner")
+ *    - Create a custom skill named "My Cooking Assistant" (invocation: "my cooking assistant")
  *    - Set endpoint to this Lambda ARN
  *    - Under Permissions, enable "Alexa Timer API (read/write)"
  *    - Paste the interaction model JSON into Build > Interaction Model > JSON Editor

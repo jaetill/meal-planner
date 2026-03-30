@@ -6,6 +6,20 @@ const ALLOWED_KEYS = ['recipes.json', 'meal-plans.json', 'staples.json'];
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const s3           = new S3Client({ region: 'us-east-2' });
 
+const HTML_ENTITIES = {
+  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'",
+  '&nbsp;': ' ', '&frac12;': '½', '&frac14;': '¼', '&frac34;': '¾',
+  '&deg;': '°', '&mdash;': '—', '&ndash;': '–', '&hellip;': '…',
+  '&rsquo;': "'", '&lsquo;': "'", '&rdquo;': '"', '&ldquo;': '"',
+};
+function decodeHtml(str) {
+  if (!str) return str;
+  return str
+    .replace(/&[a-z0-9#]+;/gi, e => HTML_ENTITIES[e.toLowerCase()] ?? e)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
 const CORS = {
   'Access-Control-Allow-Origin':  'https://meals.jaetill.com',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
@@ -400,7 +414,7 @@ async function handleCookSession(event) {
       recipeName:  recipe.name,
       stepIndex:   0,
       steps:       (recipe.directions || []).map(d => {
-        const text = typeof d === 'string' ? d : (d.text || '');
+        const text = decodeHtml(typeof d === 'string' ? d : (d.text || ''));
         return { text, duration: parseDurationFromText(text) };
       }).filter(d => d.text),
       ingredients: (recipe.ingredients || []).map(({ quantity, unit, name }) => ({ quantity, unit, name })),

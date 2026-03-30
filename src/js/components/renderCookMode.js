@@ -78,7 +78,7 @@ export async function renderCookMode(recipe, onExit) {
     if (step.duration) {
       const timerBadge = document.createElement('div');
       timerBadge.className = 'mt-8 flex items-center gap-2 bg-green-50 text-green-700 px-5 py-3 rounded-2xl text-sm font-medium';
-      timerBadge.textContent = `⏱ ${formatDuration(step.duration)} — say "Alexa, what's next" to auto-start timer`;
+      timerBadge.textContent = `⏱ ${formatDuration(step.duration)} — say "Alexa, ask my cooking assistant what's next" to auto-start timer`;
       content.appendChild(timerBadge);
     }
 

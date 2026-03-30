@@ -74,3 +74,10 @@ jobs:
             --function-name meal-planner-kroger \
             --zip-file fileb://lambda/kroger.zip \
             --region us-east-2
+      - name: Deploy share Lambda
+        run: |
+          zip -j lambda/share.zip lambda/share.js
+          aws lambda update-function-code \
+            --function-name meal-planner-share \
+            --zip-file fileb://lambda/share.zip \
+            --region us-east-2

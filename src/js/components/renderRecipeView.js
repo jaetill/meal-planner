@@ -3,7 +3,7 @@ import { renderRecipeForm } from './renderRecipeForm.js';
 import { renderRecipes } from './renderRecipes.js';
 import { renderCookMode } from './renderCookMode.js';
 import { populateRecipeNutrition, calcNutritionPerServing } from '../data/nutrition.js';
-import { shareRecipe, formatDuration } from '../data/index.js';
+import { shareRecipe, shareRecipeByEmail, formatDuration } from '../data/index.js';
 
 export function renderRecipeView(recipe, onBack) {
   const container = document.getElementById('app-content');
@@ -235,66 +235,151 @@ function showShareSheet(recipe) {
   const sheet = document.createElement('div');
   sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4';
 
+  // Header
   const header = document.createElement('div');
   header.className = 'flex items-center justify-between mb-4';
-
   const title = document.createElement('span');
   title.className = 'font-bold text-gray-800';
   title.textContent = `Share "${recipe.name}"`;
-
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = '×';
   closeBtn.className = 'text-gray-400 text-2xl leading-none';
   closeBtn.onclick = () => overlay.remove();
-
   header.appendChild(title);
   header.appendChild(closeBtn);
   sheet.appendChild(header);
 
-  const desc = document.createElement('p');
-  desc.className = 'text-sm text-gray-500 mb-3';
-  desc.textContent = 'Enter the username of the person you want to share with. They\'ll see it in their Recipes tab.';
-  sheet.appendChild(desc);
+  // Tabs
+  const tabs = document.createElement('div');
+  tabs.className = 'flex gap-2 mb-4';
+  const tabUser  = document.createElement('button');
+  const tabEmail = document.createElement('button');
+  [tabUser, tabEmail].forEach(t => {
+    t.type = 'button';
+    t.className = 'flex-1 py-1.5 text-sm rounded-lg border';
+  });
+  tabUser.textContent  = 'App user';
+  tabEmail.textContent = 'Email';
+  tabs.appendChild(tabUser);
+  tabs.appendChild(tabEmail);
+  sheet.appendChild(tabs);
 
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Recipient\'s username';
-  input.className = 'field mb-3';
-  sheet.appendChild(input);
-
+  // Shared status element
   const statusEl = document.createElement('p');
   statusEl.className = 'text-sm mb-3 hidden';
   sheet.appendChild(statusEl);
 
-  const sendBtn = document.createElement('button');
-  sendBtn.type = 'button';
-  sendBtn.textContent = 'Send recipe';
-  sendBtn.className = 'btn btn-primary w-full';
+  function setStatus(text, color) {
+    statusEl.textContent = text;
+    statusEl.className = `text-sm mb-3 ${color}`;
+  }
 
-  sendBtn.onclick = async () => {
-    const target = input.value.trim();
+  // ── App-user panel ────────────────────────────────────────
+  const userPanel = document.createElement('div');
+
+  const userDesc = document.createElement('p');
+  userDesc.className = 'text-sm text-gray-500 mb-3';
+  userDesc.textContent = 'Enter the username of the person you want to share with. They\'ll see it in their Recipes tab.';
+  userPanel.appendChild(userDesc);
+
+  const userInput = document.createElement('input');
+  userInput.type = 'text';
+  userInput.placeholder = 'Recipient\'s username';
+  userInput.className = 'field mb-3';
+  userPanel.appendChild(userInput);
+
+  const userSendBtn = document.createElement('button');
+  userSendBtn.type = 'button';
+  userSendBtn.textContent = 'Send recipe';
+  userSendBtn.className = 'btn btn-primary w-full';
+  userSendBtn.onclick = async () => {
+    const target = userInput.value.trim();
     if (!target) return;
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending…';
+    userSendBtn.disabled = true;
+    userSendBtn.textContent = 'Sending…';
     statusEl.className = 'text-sm mb-3';
     try {
       await shareRecipe(recipe, target);
-      statusEl.textContent = `✓ Sent to ${target}!`;
-      statusEl.className = 'text-sm mb-3 text-green-600';
-      sendBtn.textContent = 'Sent';
-      input.value = '';
+      setStatus(`✓ Sent to ${target}!`, 'text-green-600');
+      userSendBtn.textContent = 'Sent';
+      userInput.value = '';
     } catch (err) {
-      statusEl.textContent = err.message || 'Could not send. Check the username and try again.';
-      statusEl.className = 'text-sm mb-3 text-red-500';
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send recipe';
+      setStatus(err.message || 'Could not send. Check the username and try again.', 'text-red-500');
+      userSendBtn.disabled = false;
+      userSendBtn.textContent = 'Send recipe';
     }
   };
+  userPanel.appendChild(userSendBtn);
 
-  sheet.appendChild(sendBtn);
+  // ── Email panel ───────────────────────────────────────────
+  const emailPanel = document.createElement('div');
+
+  const emailDesc = document.createElement('p');
+  emailDesc.className = 'text-sm text-gray-500 mb-3';
+  emailDesc.textContent = 'Send the recipe as an email with a JSON attachment (Schema.org format, importable by other recipe apps).';
+  emailPanel.appendChild(emailDesc);
+
+  const emailInput = document.createElement('input');
+  emailInput.type = 'email';
+  emailInput.placeholder = 'Recipient\'s email address';
+  emailInput.className = 'field mb-3';
+  emailPanel.appendChild(emailInput);
+
+  const emailSendBtn = document.createElement('button');
+  emailSendBtn.type = 'button';
+  emailSendBtn.textContent = 'Send email';
+  emailSendBtn.className = 'btn btn-primary w-full';
+  emailSendBtn.onclick = async () => {
+    const email = emailInput.value.trim();
+    if (!email) return;
+    emailSendBtn.disabled = true;
+    emailSendBtn.textContent = 'Sending…';
+    statusEl.className = 'text-sm mb-3';
+    try {
+      await shareRecipeByEmail(recipe, email);
+      setStatus(`✓ Sent to ${email}!`, 'text-green-600');
+      emailSendBtn.textContent = 'Sent';
+      emailInput.value = '';
+    } catch (err) {
+      setStatus(err.message || 'Could not send the email. Try again.', 'text-red-500');
+      emailSendBtn.disabled = false;
+      emailSendBtn.textContent = 'Send email';
+    }
+  };
+  emailPanel.appendChild(emailSendBtn);
+
+  // ── Tab switching ─────────────────────────────────────────
+  const activeClass   = 'border-green-500 bg-green-50 text-green-700 font-medium';
+  const inactiveClass = 'border-gray-200 text-gray-500';
+
+  function showTab(which) {
+    statusEl.className = 'text-sm mb-3 hidden';
+    if (which === 'user') {
+      tabUser.className  = `flex-1 py-1.5 text-sm rounded-lg border ${activeClass}`;
+      tabEmail.className = `flex-1 py-1.5 text-sm rounded-lg border ${inactiveClass}`;
+      userPanel.style.display  = '';
+      emailPanel.style.display = 'none';
+      userInput.focus();
+    } else {
+      tabEmail.className = `flex-1 py-1.5 text-sm rounded-lg border ${activeClass}`;
+      tabUser.className  = `flex-1 py-1.5 text-sm rounded-lg border ${inactiveClass}`;
+      emailPanel.style.display = '';
+      userPanel.style.display  = 'none';
+      emailInput.focus();
+    }
+  }
+
+  tabUser.onclick  = () => showTab('user');
+  tabEmail.onclick = () => showTab('email');
+
+  sheet.appendChild(userPanel);
+  sheet.appendChild(emailPanel);
+  sheet.appendChild(statusEl);
+
   overlay.appendChild(sheet);
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   document.body.appendChild(overlay);
-  input.focus();
+
+  showTab('user');
 }

@@ -1,0 +1,151 @@
+// meal-planner-share Lambda
+// Env vars: POSTMARK_API_KEY, FROM_EMAIL (default: jason@jaetill.com)
+// API Gateway must have a Cognito authorizer so claims are present.
+
+const https = require('https');
+
+const POSTMARK_API_KEY = process.env.POSTMARK_API_KEY;
+const FROM_EMAIL       = process.env.FROM_EMAIL || 'jason@jaetill.com';
+
+const ALLOWED_ORIGINS = new Set(['https://meals.jaetill.com', 'http://localhost:5173']);
+const CORS = {
+  'Access-Control-Allow-Origin':  'https://meals.jaetill.com',
+  'Access-Control-Allow-Methods': 'POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Content-Type': 'application/json',
+};
+
+function corsHeaders(event) {
+  const origin = event.headers?.origin || event.headers?.Origin || '';
+  return { ...CORS, 'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : CORS['Access-Control-Allow-Origin'] };
+}
+
+function toSchemaOrg(recipe) {
+  const out = {
+    '@context': 'https://schema.org',
+    '@type':    'Recipe',
+    name:       recipe.name,
+  };
+  if (recipe.description) out.description  = recipe.description;
+  if (recipe.servings)    out.recipeYield  = String(recipe.servings);
+  if (recipe.prepTime)    out.prepTime     = recipe.prepTime;
+  if (recipe.cookTime)    out.cookTime     = recipe.cookTime;
+  if (recipe.source)      out.url          = recipe.source;
+  if (recipe.tags?.length) out.keywords    = recipe.tags.join(',');
+  if (recipe.ingredients?.length) {
+    out.recipeIngredient = recipe.ingredients.map(ing => {
+      const ingName = ing.preparation ? `${ing.name}, ${ing.preparation}` : ing.name;
+      return [ing.quantity, ing.unit, ingName].filter(Boolean).join(' ');
+    });
+  }
+  if (recipe.directions?.length) {
+    out.recipeInstructions = recipe.directions
+      .map(step => ({ '@type': 'HowToStep', text: typeof step === 'string' ? step : step.text }))
+      .filter(s => s.text?.trim());
+  }
+  return out;
+}
+
+function buildTextBody(recipe) {
+  const lines = [`${recipe.name}`, ''];
+  if (recipe.description) lines.push(recipe.description, '');
+  const meta = [
+    recipe.servings && `Serves: ${recipe.servings}`,
+    recipe.prepTime && `Prep: ${recipe.prepTime}`,
+    recipe.cookTime && `Cook: ${recipe.cookTime}`,
+  ].filter(Boolean);
+  if (meta.length) lines.push(...meta, '');
+  if (recipe.ingredients?.length) {
+    lines.push('Ingredients:');
+    recipe.ingredients.forEach(ing => {
+      const ingName = ing.preparation ? `${ing.name}, ${ing.preparation}` : ing.name;
+      lines.push('  • ' + [ing.quantity, ing.unit, ingName].filter(Boolean).join(' '));
+    });
+    lines.push('');
+  }
+  if (recipe.directions?.length) {
+    lines.push('Directions:');
+    recipe.directions.forEach((step, i) => {
+      const text = typeof step === 'string' ? step : step.text;
+      if (text?.trim()) lines.push(`  ${i + 1}. ${text}`);
+    });
+    lines.push('');
+  }
+  lines.push('The attached JSON file can be imported into the Meal Planner app at https://meals.jaetill.com');
+  return lines.join('\n');
+}
+
+function postmark(msg) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(msg);
+    const req  = https.request({
+      hostname: 'api.postmarkapp.com',
+      path:     '/email',
+      method:   'POST',
+      headers:  {
+        'Accept':                  'application/json',
+        'Content-Type':            'application/json',
+        'X-Postmark-Server-Token': POSTMARK_API_KEY,
+        'Content-Length':          Buffer.byteLength(body),
+      },
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(JSON.parse(data));
+        else reject(new Error(`Postmark ${res.statusCode}: ${data}`));
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+exports.handler = async (event) => {
+  const headers = corsHeaders(event);
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  const userId = event.requestContext?.authorizer?.claims?.['cognito:username'];
+  if (!userId) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON' }) };
+  }
+
+  const { recipe, recipientEmail } = body;
+
+  if (!recipe?.name) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'recipe is required' }) };
+  }
+  if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Valid recipientEmail is required' }) };
+  }
+
+  const schemaRecipe    = toSchemaOrg(recipe);
+  const safeName        = recipe.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const jsonAttachment  = Buffer.from(JSON.stringify(schemaRecipe, null, 2)).toString('base64');
+
+  await postmark({
+    From:          FROM_EMAIL,
+    To:            recipientEmail,
+    Subject:       `Recipe: ${recipe.name}`,
+    TextBody:      buildTextBody(recipe),
+    MessageStream: 'outbound',
+    Attachments: [{
+      Name:        `${safeName}.json`,
+      Content:     jsonAttachment,
+      ContentType: 'application/json',
+    }],
+  });
+
+  return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+};

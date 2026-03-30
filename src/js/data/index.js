@@ -6,6 +6,7 @@ const SAVE_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod
 const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
 const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';
 const COOK_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/cook';
+const SHARE_URL   = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/share';
 
 // ── Active group ──────────────────────────────────────────
 
@@ -205,6 +206,21 @@ export async function fetchGroupMembers(groupId) {
   });
   if (!res.ok) throw new Error(`Members fetch failed: ${res.status}`);
   return res.json(); // { members, name }
+}
+
+export async function shareRecipeByEmail(recipe, recipientEmail) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(SHARE_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify({ recipe, recipientEmail }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Share failed: ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function shareRecipe(recipe, targetUsername) {
