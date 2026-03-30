@@ -1,4 +1,4 @@
-import { startCookSession, advanceCookSession, backCookSession, formatDuration } from '../data/index.js';
+import { startCookSession, advanceCookSession, backCookSession, getCookSession, formatDuration } from '../data/index.js';
 import { btn } from '../ui/elements.js';
 
 export async function renderCookMode(recipe, onExit) {
@@ -9,8 +9,11 @@ export async function renderCookMode(recipe, onExit) {
 
   if (!steps.length) { onExit?.(); return; }
 
-  let stepIndex = 0;
-  let wakeLock  = null;
+  let stepIndex      = 0;
+  let wakeLock       = null;
+  let lastLocalAction = 0;
+  const POLL_MS      = 5000;
+  const ACTION_GRACE = 3000;
 
   try {
     if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
@@ -18,6 +21,18 @@ export async function renderCookMode(recipe, onExit) {
 
   // Sync session to S3 in background so Alexa knows which recipe is active
   startCookSession(recipe).catch(() => {});
+
+  // Poll for Alexa-driven step changes every 5 seconds
+  const pollInterval = setInterval(async () => {
+    if (Date.now() - lastLocalAction < ACTION_GRACE) return;
+    try {
+      const { session } = await getCookSession();
+      if (session.stepIndex !== stepIndex) {
+        stepIndex = session.stepIndex;
+        render();
+      }
+    } catch {}
+  }, POLL_MS);
 
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 bg-white z-50 flex flex-col';
@@ -95,6 +110,7 @@ export async function renderCookMode(recipe, onExit) {
       isFirst ? ' bg-gray-100 text-gray-300 opacity-40 pointer-events-none' : ' bg-gray-100 text-gray-600 active:bg-gray-200'
     }`;
     backBtn.onclick = () => {
+      lastLocalAction = Date.now();
       stepIndex--;
       backCookSession().catch(() => {});
       render();
@@ -108,6 +124,7 @@ export async function renderCookMode(recipe, onExit) {
     }`;
     nextBtn.onclick = () => {
       if (isLast) { exit(); return; }
+      lastLocalAction = Date.now();
       stepIndex++;
       advanceCookSession().catch(() => {});
       render();
@@ -119,6 +136,7 @@ export async function renderCookMode(recipe, onExit) {
   }
 
   function exit() {
+    clearInterval(pollInterval);
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     overlay.remove();
     onExit?.();

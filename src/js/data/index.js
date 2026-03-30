@@ -318,6 +318,7 @@ async function cookPost(action, extra = {}) {
 export const startCookSession   = (recipe) => cookPost('start', { recipe });
 export const advanceCookSession = ()       => cookPost('advance');
 export const backCookSession    = ()       => cookPost('back');
+export const getCookSession     = ()       => cookPost('get', {});
 
 // ── Data factories ────────────────────────────────────────
 

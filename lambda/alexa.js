@@ -183,16 +183,17 @@ exports.handler = async (event) => {
       );
     }
 
+    const completedStep = session.steps[session.stepIndex];
     session.stepIndex += 1;
     await s3Put(s3Key, session);
 
     const step = session.steps[session.stepIndex];
     let   text = `Step ${session.stepIndex + 1} of ${total}: ${step.text}`;
 
-    if (step.duration && apiAccessToken) {
-      const label    = `Step ${session.stepIndex + 1}`;
-      const timerSet = await setAlexaTimer(apiEndpoint, apiAccessToken, step.duration, label);
-      const durText  = formatDuration(step.duration);
+    if (completedStep.duration && apiAccessToken) {
+      const label    = `Step ${session.stepIndex}`;
+      const timerSet = await setAlexaTimer(apiEndpoint, apiAccessToken, completedStep.duration, label);
+      const durText  = formatDuration(completedStep.duration);
       text += timerSet
         ? ` I've started a ${durText} timer for you.`
         : ` This step takes about ${durText}.`;
