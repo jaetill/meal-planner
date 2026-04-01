@@ -65,6 +65,29 @@ function formatQty(num) {
 
 // ── Aggregation ────────────────────────────────────────────
 
+// Unit words that sometimes end up embedded at the start of ingredient names
+// due to import failures (e.g. "cloves crushed garlic" instead of name="garlic" unit="clove")
+const EMBEDDED_UNITS = {
+  cloves: 'clove', clove: 'clove', cups: 'cup', cup: 'cup',
+  tablespoons: 'tbsp', tablespoon: 'tbsp', teaspoons: 'tsp', teaspoon: 'tsp',
+  ounces: 'oz', ounce: 'oz', pounds: 'lb', pound: 'lb', lbs: 'lb',
+  grams: 'g', gram: 'g', cans: 'can', can: 'can',
+  packages: 'pkg', package: 'pkg', slices: 'slice', slice: 'slice',
+  pieces: 'piece', piece: 'piece', sprigs: 'sprig', sprig: 'sprig',
+  bunches: 'bunch', bunch: 'bunch', stalks: 'stalk', stalk: 'stalk',
+  heads: 'head', head: 'head', pinches: 'pinch', pinch: 'pinch',
+};
+
+function normalizeIngredient(name, unit) {
+  if (unit) return { name, unit };
+  const words = name.trim().split(/\s+/);
+  if (words.length > 1) {
+    const extracted = EMBEDDED_UNITS[words[0].toLowerCase()];
+    if (extracted) return { name: words.slice(1).join(' '), unit: extracted };
+  }
+  return { name, unit: '' };
+}
+
 function buildGroceryList(dateKeys, defaultServings) {
   const rangeEntries = mealPlans.filter(e => dateKeys.includes(e.date));
 
@@ -81,15 +104,15 @@ function buildGroceryList(dateKeys, defaultServings) {
     for (const ing of (recipe.ingredients || [])) {
       if (!ing.quantity && !ing.unit) continue; // skip group header rows
 
-      const key = `${ing.name.toLowerCase().trim()}|${(ing.unit || '').toLowerCase().trim()}`;
+      const { name, unit } = normalizeIngredient(ing.name, ing.unit || '');
+      const key       = `${name.toLowerCase().trim()}|${unit.toLowerCase().trim()}`;
       const scaledQty = parseQty(ing.quantity) * scale;
 
       if (map.has(key)) {
         map.get(key).totalQty += scaledQty;
       } else {
         map.set(key, {
-          name:        ing.name,
-          unit:        ing.unit || '',
+          name, unit,
           preparation: ing.preparation || '',
           section:     ing.section || '',
           totalQty:    scaledQty,
@@ -534,6 +557,22 @@ async function loadKrogerData(items, locationId, gen, onComplete) {
   if (fetchGeneration === gen) onComplete();
 }
 
+// ── Aisle config helpers ───────────────────────────────────
+// aisle-orders.json shape: { [locationId]: { order: string[], overrides: { [itemName]: aisleKey } } }
+// Old shape was { [locationId]: string[] } — handled for backward compat.
+
+function getAisleConfig(locationId) {
+  const raw = aisleOrders[locationId];
+  if (!raw) return { order: [], overrides: {} };
+  if (Array.isArray(raw)) return { order: raw, overrides: {} };
+  return { order: raw.order || [], overrides: raw.overrides || {} };
+}
+
+async function saveAisleConfig(locationId, config) {
+  const updated = { ...aisleOrders, [locationId]: config };
+  await saveAisleOrders(updated);
+}
+
 // ── Aisle reorder sheet ────────────────────────────────────
 
 function showAisleReorderSheet(store, sortedGroups, onSave) {
@@ -617,8 +656,8 @@ function showAisleReorderSheet(store, sortedGroups, onSave) {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving…';
     try {
-      const updated = { ...aisleOrders, [store.locationId]: order };
-      await saveAisleOrders(updated);
+      const existing = getAisleConfig(store.locationId);
+      await saveAisleConfig(store.locationId, { ...existing, order });
       overlay.remove();
       onSave();
     } catch {
@@ -633,11 +672,76 @@ function showAisleReorderSheet(store, sortedGroups, onSave) {
   document.body.appendChild(overlay);
 }
 
+// ── Aisle assignment sheet (per-item override) ─────────────
+
+function showAisleAssignSheet(item, store, sortedGroups, currentGroupKey, onSave) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[70vh] flex flex-col';
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center justify-between mb-1';
+  const title = document.createElement('span');
+  title.className = 'font-bold text-gray-800 truncate flex-1 mr-2';
+  title.textContent = `Move "${item.name}" to…`;
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'text-gray-400 text-2xl leading-none shrink-0';
+  closeBtn.onclick = () => overlay.remove();
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  sheet.appendChild(header);
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'text-xs text-gray-400 mb-4';
+  subtitle.textContent = 'Saved for everyone in your group. Fixes bad Kroger aisle data.';
+  sheet.appendChild(subtitle);
+
+  const listEl = document.createElement('div');
+  listEl.className = 'overflow-y-auto flex-1 space-y-1';
+
+  for (const [groupKey, { aisle }] of sortedGroups) {
+    const isCurrent = groupKey === currentGroupKey;
+    const label = aisle
+      ? `Aisle ${aisle.number}${aisle.description ? ` · ${aisle.description}` : ''}`
+      : 'Other';
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = `w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${
+      isCurrent
+        ? 'bg-green-50 text-green-700 font-medium'
+        : 'bg-gray-50 text-gray-700 hover:bg-green-50 hover:text-green-700'
+    }`;
+    row.textContent = isCurrent ? `${label} ✓` : label;
+    row.onclick = async () => {
+      if (isCurrent) { overlay.remove(); return; }
+      row.disabled = true;
+      try {
+        const config = getAisleConfig(store.locationId);
+        const overrides = { ...config.overrides, [item.name.toLowerCase()]: groupKey };
+        await saveAisleConfig(store.locationId, { ...config, overrides });
+        overlay.remove();
+        onSave();
+      } catch { row.disabled = false; }
+    };
+    listEl.appendChild(row);
+  }
+
+  sheet.appendChild(listEl);
+  overlay.appendChild(sheet);
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
 // ── Staples section ────────────────────────────────────────
 
 let staplesEditMode = false;
 
-function renderStaplesSection(container, store, checkedStaples) {
+function renderStaplesSection(container, store, checkedStaples, inAisleMode = false) {
   const wrapper = document.createElement('div');
   wrapper.className = 'mt-6';
 
@@ -684,6 +788,15 @@ function renderStaplesSection(container, store, checkedStaples) {
     wrapper.appendChild(headerRow);
 
     if (collapsed) return;
+
+    // In aisle mode, staples are shown inside their aisles — only show edit controls here
+    if (inAisleMode && !staplesEditMode) {
+      const note = document.createElement('p');
+      note.className = 'text-xs text-gray-300 italic mb-2';
+      note.textContent = 'Staples are sorted into aisles above. Tap Edit to manage the list.';
+      wrapper.appendChild(note);
+      return;
+    }
 
     // Item list
     if (staples.length === 0 && !staplesEditMode) {
@@ -891,15 +1004,25 @@ export function renderGroceryList() {
       container.appendChild(legend);
     }
 
-    // Determine if we have aisle data for all items
-    const allAislesCached = store && items.every(
+    // Determine if we have aisle data for all items (including staples)
+    const allAislesCached = store && [...items, ...staples].every(
       item => aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
     );
 
     if (store && allAislesCached) {
       // ── Aisle-grouped render ────────────────────────────
+      const config = getAisleConfig(store.locationId);
+
+      // First pass: natural grouping by Kroger aisle data (recipe items + staples)
       const aisleMap = new Map();
-      for (const item of items) {
+      const allAisleItems = [
+        ...items,
+        ...staples.map(s => ({
+          name: s.name, unit: s.unit || '', preparation: '', section: '',
+          totalQty: parseQty(s.quantity), rawQty: s.quantity || '', isStaple: true,
+        })),
+      ];
+      for (const item of allAisleItems) {
         const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
         const aisle    = aisleCache.get(cacheKey);
         const groupKey = aisle?.number ?? '?';
@@ -907,14 +1030,32 @@ export function renderGroceryList() {
         aisleMap.get(groupKey).items.push(item);
       }
 
-      const savedOrder = aisleOrders[store.locationId] || [];
+      // Second pass: apply per-item overrides
+      for (const [itemName, targetKey] of Object.entries(config.overrides)) {
+        for (const [, group] of aisleMap) {
+          const idx = group.items.findIndex(i => i.name.toLowerCase() === itemName);
+          if (idx === -1) continue;
+          const [item] = group.items.splice(idx, 1);
+          if (!aisleMap.has(targetKey)) {
+            aisleMap.set(targetKey, { aisle: { number: targetKey, description: '' }, items: [] });
+          }
+          aisleMap.get(targetKey).items.push(item);
+          break;
+        }
+      }
+
+      // Remove any groups emptied by overrides
+      for (const [key, group] of aisleMap) {
+        if (group.items.length === 0) aisleMap.delete(key);
+      }
+
+      const { order: savedOrder } = config;
       const sortedGroups = [...aisleMap.entries()].sort(([a], [b]) => {
         const ai = savedOrder.indexOf(a);
         const bi = savedOrder.indexOf(b);
         if (ai !== -1 && bi !== -1) return ai - bi;
         if (ai !== -1) return -1;
         if (bi !== -1) return 1;
-        // Fall back to numeric order for any aisles not yet in saved order
         if (a === '?') return 1;
         if (b === '?') return -1;
         return parseInt(a) - parseInt(b);
@@ -928,13 +1069,13 @@ export function renderGroceryList() {
       reorderBtn.onclick = () => showAisleReorderSheet(store, sortedGroups, render);
       summaryRight.prepend(reorderBtn);
 
-      for (const [, { aisle, items: groupItems }] of sortedGroups) {
+      for (const [groupKey, { aisle, items: groupItems }] of sortedGroups) {
         const groupEl = document.createElement('div');
         groupEl.className = 'mb-5';
 
         const groupLabel = document.createElement('div');
         groupLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
-        groupLabel.textContent = aisle
+        groupLabel.textContent = aisle?.number
           ? `Aisle ${aisle.number}${aisle.description ? ` · ${aisle.description}` : ''}`
           : 'Other';
         groupEl.appendChild(groupLabel);
@@ -943,7 +1084,9 @@ export function renderGroceryList() {
         card.className = 'card divide-y divide-gray-50';
 
         for (const item of groupItems) {
-          card.appendChild(makeItemRow(item, store, checked));
+          card.appendChild(makeItemRow(item, store, checked,
+            (movedItem) => showAisleAssignSheet(movedItem, store, sortedGroups, groupKey, render)
+          ));
         }
 
         groupEl.appendChild(card);
@@ -1013,7 +1156,7 @@ export function renderGroceryList() {
       }
     }
 
-    renderStaplesSection(container, store, checkedStaples);
+    renderStaplesSection(container, store, checkedStaples, allAislesCached);
   }
 
   render();
@@ -1021,8 +1164,8 @@ export function renderGroceryList() {
 
 // ── Item row builder ───────────────────────────────────────
 
-function makeItemRow(item, store, checked) {
-  const key       = `${item.name.toLowerCase()}|${item.unit.toLowerCase()}`;
+function makeItemRow(item, store, checked, onMove = null) {
+  const key       = `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
   const isChecked = checked.has(key);
 
   const row = document.createElement('label');
@@ -1062,6 +1205,16 @@ function makeItemRow(item, store, checked) {
     }
 
     row.appendChild(priceEl);
+  }
+
+  if (onMove) {
+    const moveBtn = document.createElement('button');
+    moveBtn.type = 'button';
+    moveBtn.textContent = '↔';
+    moveBtn.title = 'Move to different aisle';
+    moveBtn.className = 'text-gray-300 hover:text-green-500 text-sm leading-none shrink-0 pl-1';
+    moveBtn.onclick = e => { e.preventDefault(); onMove(item); };
+    row.appendChild(moveBtn);
   }
 
   return row;
