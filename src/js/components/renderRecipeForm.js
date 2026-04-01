@@ -211,12 +211,13 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       textarea.rows = 2;
       textarea.oninput = e => {
         const text = e.target.value;
-        recipe.directions[i] = { text, duration: parseDurationFromText(text) };
+        const dur = parseDurationFromText(text);
+        recipe.directions[i] = { text, duration: dur?.min ?? null, ...(dur?.max ? { durationMax: dur.max } : {}) };
         // Update duration badge
         const badge = wrapper.querySelector('.duration-badge');
-        const dur = parseDurationFromText(text);
         if (dur && badge) {
-          badge.textContent = `⏱ ${formatDuration(dur)}`;
+          const durLabel = dur.max ? `${formatDuration(dur.min)}–${formatDuration(dur.max)}` : formatDuration(dur.min);
+          badge.textContent = `⏱ ${durLabel}`;
           badge.classList.remove('hidden');
         } else if (badge) {
           badge.classList.add('hidden');
@@ -238,7 +239,10 @@ export function renderRecipeForm(existingRecipe, onDone, isImport = false) {
       // Duration badge (read-only, auto-detected)
       const durBadge = document.createElement('span');
       durBadge.className = `duration-badge text-xs text-green-600 pl-7${step.duration ? '' : ' hidden'}`;
-      durBadge.textContent = step.duration ? `⏱ ${formatDuration(step.duration)}` : '';
+      if (step.duration) {
+        const durLabel = step.durationMax ? `${formatDuration(step.duration)}–${formatDuration(step.durationMax)}` : formatDuration(step.duration);
+        durBadge.textContent = `⏱ ${durLabel}`;
+      }
       wrapper.appendChild(durBadge);
 
       dirList.appendChild(wrapper);

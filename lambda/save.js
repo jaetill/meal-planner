@@ -37,17 +37,33 @@ const CORS = {
 
 // ── Helpers ───────────────────────────────────────────────
 
+// Returns { min, max? } in seconds, or null. max is only set for range expressions.
 function parseDurationFromText(text) {
   if (!text) return null;
+  const R = /(\d+)\s*(?:[-–]|to)\s*(\d+)\s*/i;
+  const rangeHourMin = text.match(new RegExp(R.source + /(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:[-–]|to)?\s*(\d+)?\s*(?:minute|min)s?/i.source, 'i'));
+  const rangeMin  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:minute|min)s?/i);
+  const rangeHour = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:hour|hr)s?/i);
+  const rangeSec  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:second|sec)s?/i);
+  if (rangeMin)  return { min: parseInt(rangeMin[1])  * 60,   max: parseInt(rangeMin[2])  * 60 };
+  if (rangeHour) return { min: parseInt(rangeHour[1]) * 3600, max: parseInt(rangeHour[2]) * 3600 };
+  if (rangeSec)  return { min: parseInt(rangeSec[1]),          max: parseInt(rangeSec[2]) };
   const hourMin = text.match(/(\d+)\s*(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:minute|min)s?/i);
-  if (hourMin) return parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60;
+  if (hourMin) return { min: parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60 };
   const hour = text.match(/\b(?:for|about)\s+(\d+)\s*(?:hour|hr)s?|(\d+)\s*(?:hour|hr)s?/i);
-  if (hour) return parseInt(hour[1] || hour[2]) * 3600;
+  if (hour) return { min: parseInt(hour[1] || hour[2]) * 3600 };
   const min = text.match(/\b(?:for|about)\s+(\d+)\s*(?:minute|min)s?|(\d+)\s*(?:minute|min)s?/i);
-  if (min) return parseInt(min[1] || min[2]) * 60;
+  if (min) return { min: parseInt(min[1] || min[2]) * 60 };
   const sec = text.match(/\b(?:for|about)\s+(\d+)\s*(?:second|sec)s?|(\d+)\s*(?:second|sec)s?/i);
-  if (sec) return parseInt(sec[1] || sec[2]);
+  if (sec) return { min: parseInt(sec[1] || sec[2]) };
   return null;
+}
+
+function stepFromText(text) {
+  const dur = parseDurationFromText(text);
+  const step = { text, duration: dur?.min ?? null };
+  if (dur?.max) step.durationMax = dur.max;
+  return step;
 }
 
 async function s3Get(key) {
@@ -112,11 +128,11 @@ async function storePhoto(photoUrl, recipeId) {
   }
 }
 
-function callClaude(prompt) {
+function callClaude(prompt, maxTokens = 1024) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
       model:      'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       messages:   [{ role: 'user', content: prompt }],
     });
 
@@ -262,7 +278,7 @@ function parseSchemaRecipe(schema) {
 
   const directions = (schema.recipeInstructions || []).map(step => {
     const text = typeof step === 'string' ? step : (step.text || step.name || '');
-    return { text, duration: parseDurationFromText(text) };
+    return stepFromText(text);
   }).filter(s => s.text);
 
   const image = Array.isArray(schema.image)
@@ -325,6 +341,32 @@ Return only the JSON object, no explanation.`;
   const jsonMatch = response.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('Claude did not return valid JSON');
   return JSON.parse(jsonMatch[0]);
+}
+
+async function splitStepsWithClaude(directions) {
+  const texts = directions.map(d => (typeof d === 'string' ? d : d.text));
+  const prompt = `Split these recipe directions into clean steps.
+
+Rules:
+- Split a step when it describes distinct sequential phases separated by time, temperature change, or technique (e.g. "Cook for 5 minutes, then add butter and cook for 3 more minutes" → two steps).
+- Keep a step together when it lists multiple ingredients or items within a single action (e.g. "Add flour, sugar, salt, and baking powder to the bowl" stays as one step).
+- Keep a step together when it describes a single continuous action (e.g. "Stir occasionally and check for doneness" stays as one step).
+- Preserve original wording exactly — only split, never rewrite or summarize.
+- Return ONLY a JSON array of strings, no explanation.
+
+Directions:
+${JSON.stringify(texts)}`;
+
+  try {
+    const response = await callClaude(prompt, 2048);
+    const match = response.match(/\[[\s\S]*\]/);
+    if (!match) return directions;
+    const split = JSON.parse(match[0]);
+    if (!Array.isArray(split) || split.length === 0) return directions;
+    return split.map(text => stepFromText(String(text).trim())).filter(s => s.text);
+  } catch {
+    return directions; // fall back to original steps on any error
+  }
 }
 
 // ── Route handlers ────────────────────────────────────────
@@ -390,13 +432,14 @@ async function handleImport(event) {
       }));
       recipe.directions = (recipe.directions || []).map(d => {
         const text = typeof d === 'string' ? d : (d.text || '');
-        return { text, duration: parseDurationFromText(text) };
+        return stepFromText(text);
       }).filter(d => d.text);
     }
 
-    recipe.id        = crypto.randomUUID();
-    recipe.createdAt = Date.now();
-    recipe.photo     = await storePhoto(recipe.photo, recipe.id);
+    recipe.directions = await splitStepsWithClaude(recipe.directions);
+    recipe.id         = crypto.randomUUID();
+    recipe.createdAt  = Date.now();
+    recipe.photo      = await storePhoto(recipe.photo, recipe.id);
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ recipe }) };
   } catch (err) {
@@ -423,7 +466,7 @@ async function handleCookSession(event) {
       stepIndex:   0,
       steps:       (recipe.directions || []).map(d => {
         const text = decodeHtml(typeof d === 'string' ? d : (d.text || ''));
-        return { text, duration: parseDurationFromText(text) };
+        return stepFromText(text);
       }).filter(d => d.text),
       ingredients: (recipe.ingredients || []).map(({ quantity, unit, name }) => ({ quantity, unit, name })),
       startedAt:   Date.now(),

@@ -198,8 +198,9 @@ export function renderRecipeView(recipe, onBack) {
     const dirList = document.createElement('ol');
     dirList.className = 'space-y-3 mb-5';
     recipe.directions.forEach((step, i) => {
-      const stepText = typeof step === 'string' ? step : step.text;
-      const duration = typeof step === 'string' ? null : step.duration;
+      const stepText    = typeof step === 'string' ? step : step.text;
+      const duration    = typeof step === 'string' ? null : step.duration;
+      const durationMax = typeof step === 'string' ? null : step.durationMax;
       if (!stepText?.trim()) return;
 
       const li = document.createElement('li');
@@ -216,9 +217,12 @@ export function renderRecipeView(recipe, onBack) {
       body.appendChild(text);
 
       if (duration) {
+        const durLabel = durationMax
+          ? `${formatDuration(duration)}–${formatDuration(durationMax)}`
+          : formatDuration(duration);
         const badge = document.createElement('span');
         badge.className = 'block text-xs text-green-600 mt-0.5';
-        badge.textContent = `⏱ ${formatDuration(duration)}`;
+        badge.textContent = `⏱ ${durLabel}`;
         body.appendChild(badge);
       }
 

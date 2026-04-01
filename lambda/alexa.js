@@ -194,9 +194,10 @@ exports.handler = async (event) => {
       const label    = `Step ${session.stepIndex}`;
       const timerSet = await setAlexaTimer(apiEndpoint, apiAccessToken, completedStep.duration, label);
       const durText  = formatDuration(completedStep.duration);
+      const upTo     = completedStep.durationMax ? ` This step may take up to ${formatDuration(completedStep.durationMax)}.` : '';
       text += timerSet
-        ? ` I've started a ${durText} timer for you.`
-        : ` This step takes about ${durText}.`;
+        ? ` I've started a ${durText} timer for you.${upTo}`
+        : ` This step takes about ${durText}.${upTo}`;
     }
 
     return respond(text, false, REPROMPT);
@@ -205,14 +206,22 @@ exports.handler = async (event) => {
   if (intentName === 'RepeatIntent' || intentName === 'AMAZON.RepeatIntent') {
     const step = session.steps[session.stepIndex];
     let   text = `Step ${session.stepIndex + 1}: ${step.text}`;
-    if (step.duration) text += ` This step takes about ${formatDuration(step.duration)}.`;
+    if (step.duration) {
+      text += step.durationMax
+        ? ` This step takes ${formatDuration(step.duration)} to ${formatDuration(step.durationMax)}.`
+        : ` This step takes about ${formatDuration(step.duration)}.`;
+    }
     return respond(text, false, REPROMPT);
   }
 
   if (intentName === 'CurrentStepIntent') {
     const step = session.steps[session.stepIndex];
     let   text = `You're on step ${session.stepIndex + 1} of ${total}: ${step.text}`;
-    if (step.duration) text += ` This step takes about ${formatDuration(step.duration)}.`;
+    if (step.duration) {
+      text += step.durationMax
+        ? ` This step takes ${formatDuration(step.duration)} to ${formatDuration(step.durationMax)}.`
+        : ` This step takes about ${formatDuration(step.duration)}.`;
+    }
     return respond(text, false, REPROMPT);
   }
 
@@ -224,7 +233,8 @@ exports.handler = async (event) => {
     if (step.duration && apiAccessToken) {
       const timerSet = await setAlexaTimer(apiEndpoint, apiAccessToken, step.duration, 'Step 1');
       const durText  = formatDuration(step.duration);
-      text += timerSet ? ` I've started a ${durText} timer.` : ` This step takes about ${durText}.`;
+      const upTo     = step.durationMax ? ` This step may take up to ${formatDuration(step.durationMax)}.` : '';
+      text += timerSet ? ` I've started a ${durText} timer.${upTo}` : ` This step takes about ${durText}.${upTo}`;
     }
     return respond(text, false, REPROMPT);
   }

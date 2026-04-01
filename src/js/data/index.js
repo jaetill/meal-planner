@@ -279,16 +279,23 @@ export async function dismissIncomingShare(shareId) {
 
 // ── Duration helpers ──────────────────────────────────────
 
+// Returns { min, max? } in seconds, or null. max only set for range expressions like "7–8 minutes".
 export function parseDurationFromText(text) {
   if (!text) return null;
+  const rangeMin  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:minute|min)s?/i);
+  const rangeHour = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:hour|hr)s?/i);
+  const rangeSec  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:second|sec)s?/i);
+  if (rangeMin)  return { min: parseInt(rangeMin[1])  * 60,   max: parseInt(rangeMin[2])  * 60 };
+  if (rangeHour) return { min: parseInt(rangeHour[1]) * 3600, max: parseInt(rangeHour[2]) * 3600 };
+  if (rangeSec)  return { min: parseInt(rangeSec[1]),          max: parseInt(rangeSec[2]) };
   const hourMin = text.match(/(\d+)\s*(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:minute|min)s?/i);
-  if (hourMin) return parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60;
+  if (hourMin) return { min: parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60 };
   const hour = text.match(/\b(?:for|about)\s+(\d+)\s*(?:hour|hr)s?|(\d+)\s*(?:hour|hr)s?/i);
-  if (hour) return parseInt(hour[1] || hour[2]) * 3600;
+  if (hour) return { min: parseInt(hour[1] || hour[2]) * 3600 };
   const min = text.match(/\b(?:for|about)\s+(\d+)\s*(?:minute|min)s?|(\d+)\s*(?:minute|min)s?/i);
-  if (min) return parseInt(min[1] || min[2]) * 60;
+  if (min) return { min: parseInt(min[1] || min[2]) * 60 };
   const sec = text.match(/\b(?:for|about)\s+(\d+)\s*(?:second|sec)s?|(\d+)\s*(?:second|sec)s?/i);
-  if (sec) return parseInt(sec[1] || sec[2]);
+  if (sec) return { min: parseInt(sec[1] || sec[2]) };
   return null;
 }
 
