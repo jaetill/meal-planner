@@ -10,7 +10,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/clien
 const https = require('https');
 
 const BUCKET       = 'jaetill-meal-planner';
-const ALLOWED_KEYS = ['recipes.json', 'meal-plans.json', 'staples.json'];
+const ALLOWED_KEYS = ['recipes.json', 'meal-plans.json', 'staples.json', 'aisle-orders.json'];
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const s3           = new S3Client({ region: 'us-east-2' });
 

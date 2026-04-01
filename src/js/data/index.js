@@ -104,6 +104,22 @@ async function saveJSON(key, data) {
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
 }
 
+// ── Aisle orders ──────────────────────────────────────────
+// Shape: { [locationId]: ['3', '1', '7', '?'] }
+
+export let aisleOrders = {};
+
+export async function loadAisleOrders() {
+  const data = await fetchJSON('aisle-orders.json');
+  aisleOrders = data || {};
+  return aisleOrders;
+}
+
+export async function saveAisleOrders(updated) {
+  await saveJSON('aisle-orders.json', updated);
+  aisleOrders = updated;
+}
+
 // ── Staples ───────────────────────────────────────────────
 
 export let staples = [];

@@ -1,4 +1,4 @@
-import { recipes, mealPlans, saveMealPlans, saveRecipes, staples, saveStaples } from '../data/index.js';
+import { recipes, mealPlans, saveMealPlans, saveRecipes, staples, saveStaples, aisleOrders, saveAisleOrders } from '../data/index.js';
 import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
@@ -534,6 +534,105 @@ async function loadKrogerData(items, locationId, gen, onComplete) {
   if (fetchGeneration === gen) onComplete();
 }
 
+// ── Aisle reorder sheet ────────────────────────────────────
+
+function showAisleReorderSheet(store, sortedGroups, onSave) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[85vh] flex flex-col';
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center justify-between mb-1';
+  const title = document.createElement('span');
+  title.className = 'font-bold text-gray-800';
+  title.textContent = 'Aisle order';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'text-gray-400 text-2xl leading-none';
+  closeBtn.onclick = () => overlay.remove();
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  sheet.appendChild(header);
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'text-xs text-gray-400 mb-4';
+  subtitle.textContent = 'Drag up/down to match how you walk the store. Saved for everyone in your group.';
+  sheet.appendChild(subtitle);
+
+  // Working copy of the order as array of group keys
+  let order = sortedGroups.map(([key]) => key);
+
+  const listEl = document.createElement('div');
+  listEl.className = 'overflow-y-auto flex-1 space-y-1 mb-4';
+
+  function renderList() {
+    listEl.innerHTML = '';
+    order.forEach((key, i) => {
+      const [, { aisle }] = sortedGroups.find(([k]) => k === key);
+      const label = aisle
+        ? `Aisle ${aisle.number}${aisle.description ? ` · ${aisle.description}` : ''}`
+        : 'Other';
+
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-xl';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'flex-1 text-sm text-gray-700';
+      labelEl.textContent = label;
+
+      const upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.textContent = '↑';
+      upBtn.className = `text-gray-400 hover:text-green-600 text-base leading-none${i === 0 ? ' invisible' : ''}`;
+      upBtn.onclick = () => {
+        [order[i - 1], order[i]] = [order[i], order[i - 1]];
+        renderList();
+      };
+
+      const downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.textContent = '↓';
+      downBtn.className = `text-gray-400 hover:text-green-600 text-base leading-none${i === order.length - 1 ? ' invisible' : ''}`;
+      downBtn.onclick = () => {
+        [order[i], order[i + 1]] = [order[i + 1], order[i]];
+        renderList();
+      };
+
+      row.appendChild(labelEl);
+      row.appendChild(upBtn);
+      row.appendChild(downBtn);
+      listEl.appendChild(row);
+    });
+  }
+
+  renderList();
+  sheet.appendChild(listEl);
+
+  const saveBtn = btn('Save order', 'primary');
+  saveBtn.className += ' w-full';
+  saveBtn.onclick = async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try {
+      const updated = { ...aisleOrders, [store.locationId]: order };
+      await saveAisleOrders(updated);
+      overlay.remove();
+      onSave();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save order';
+    }
+  };
+  sheet.appendChild(saveBtn);
+
+  overlay.appendChild(sheet);
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
 // ── Staples section ────────────────────────────────────────
 
 let staplesEditMode = false;
@@ -808,11 +907,26 @@ export function renderGroceryList() {
         aisleMap.get(groupKey).items.push(item);
       }
 
+      const savedOrder = aisleOrders[store.locationId] || [];
       const sortedGroups = [...aisleMap.entries()].sort(([a], [b]) => {
+        const ai = savedOrder.indexOf(a);
+        const bi = savedOrder.indexOf(b);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        // Fall back to numeric order for any aisles not yet in saved order
         if (a === '?') return 1;
         if (b === '?') return -1;
         return parseInt(a) - parseInt(b);
       });
+
+      // Reorder button — shows in header area
+      const reorderBtn = document.createElement('button');
+      reorderBtn.type = 'button';
+      reorderBtn.textContent = 'Reorder aisles';
+      reorderBtn.className = 'text-xs text-gray-400 hover:text-green-600';
+      reorderBtn.onclick = () => showAisleReorderSheet(store, sortedGroups, render);
+      summaryRight.prepend(reorderBtn);
 
       for (const [, { aisle, items: groupItems }] of sortedGroups) {
         const groupEl = document.createElement('div');
