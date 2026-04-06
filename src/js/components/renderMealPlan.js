@@ -514,11 +514,12 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   dayLabel.textContent = 'Day time constraints';
   sheet.appendChild(dayLabel);
 
-  const CONSTRAINT_OPTIONS = ['normal', 'quick', 'elaborate'];
+  const CONSTRAINT_OPTIONS = ['normal', 'quick', 'elaborate', 'none'];
   const CONSTRAINT_STYLES = {
     normal:    'bg-gray-100 text-gray-600',
     quick:     'bg-amber-100 text-amber-700',
     elaborate: 'bg-blue-100 text-blue-700',
+    none:      'bg-red-100 text-red-600',
   };
   const dayConstraints = {};
 

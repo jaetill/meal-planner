@@ -35,7 +35,7 @@ function respond(status, body) {
 function callClaude(system, userPrompt) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify({
-      model:      'claude-sonnet-4-6-20250514',
+      model:      'claude-haiku-4-5-20251001',
       max_tokens: 4096,
       system,
       messages:   [{ role: 'user', content: userPrompt }],
@@ -128,15 +128,21 @@ Optimize for:
 1. Nutritional balance — hit daily calorie and macro targets when provided
 2. Variety — avoid repeating the same protein source on consecutive days; mix cuisines and cooking methods
 3. Ingredient overlap — share perishable ingredients across meals in the same week to reduce grocery waste (e.g. if two recipes use cilantro, schedule them close together)
-4. Time fit — respect per-day time constraints (quick = under 30 min total, elaborate = no limit, normal = under 60 min)
+4. Time fit — respect per-day time constraints:
+   - "quick" = under 30 min total prep+cook
+   - "normal" = under 60 min (default)
+   - "elaborate" = no time limit, can be a complex recipe
+   - "none" = skip this day entirely (eating out, no cooking)
 5. Practical flow — schedule batch-cook-friendly or crockpot meals earlier in the week when possible
+6. Leftovers — when a recipe makes more servings than needed, suggest eating leftovers for a subsequent lunch or dinner instead of cooking a new meal. Mark leftover entries with plainText like "Leftovers: [Recipe Name]".
 
 Rules:
 - Only assign recipes from the provided catalog. Never invent recipes.
 - Use the recipe ID exactly as given.
-- For meals not in the catalog (like a simple breakfast), you may suggest a plainText entry instead of a recipeId.
+- For meals not in the catalog (like a simple breakfast or leftovers), use a plainText entry instead of a recipeId.
 - If existing meals are already planned for certain slots, work around them.
 - Consider the recent meal history to avoid repeating meals from the last 1-2 weeks.
+- For days marked "none", do not plan any meals.
 
 Return ONLY valid JSON matching this exact structure:
 {
