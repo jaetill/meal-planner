@@ -231,7 +231,12 @@ async function handleGenerate(body) {
 
   userPrompt += `Generate the meal plan now.`;
 
-  const response = await callClaude(SYSTEM_PROMPT, userPrompt);
+  let response;
+  try {
+    response = await callClaude(SYSTEM_PROMPT, userPrompt);
+  } catch (err) {
+    return respond(500, { error: `AI generation failed: ${err.message}` });
+  }
 
   // Parse JSON from response
   const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -278,7 +283,12 @@ async function handleRefine(body) {
     + `## Refinement Request\n${refinement}\n\n`
     + `Apply the refinement to the current plan. Return the full updated plan in the same JSON format. Change only what's needed to address the request.`;
 
-  const response = await callClaude(SYSTEM_PROMPT, userPrompt);
+  let response;
+  try {
+    response = await callClaude(SYSTEM_PROMPT, userPrompt);
+  } catch (err) {
+    return respond(500, { error: `AI refinement failed: ${err.message}` });
+  }
 
   const jsonMatch = response.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return respond(500, { error: 'AI did not return valid JSON' });
