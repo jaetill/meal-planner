@@ -349,14 +349,21 @@ export const getCookSession     = ()       => cookPost('get', {});
 async function planPost(body) {
   const session = await Auth.currentSession();
   const token   = session.getIdToken().getJwtToken();
-  const res = await fetch(PLAN_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(PLAN_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: token },
+      body:    JSON.stringify(body),
+    });
+  } catch (fetchErr) {
+    throw new Error(`Network error: ${fetchErr.message}. Check browser console for details.`);
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Plan request failed: ${res.status}`);
+    const text = await res.text().catch(() => '');
+    let errMsg;
+    try { errMsg = JSON.parse(text).error || JSON.parse(text).message; } catch {}
+    throw new Error(errMsg || `Plan request failed: ${res.status} — ${text.slice(0, 200)}`);
   }
   return res.json();
 }
