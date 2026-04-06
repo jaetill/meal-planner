@@ -7,6 +7,7 @@ const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod
 const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';
 const COOK_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/cook';
 const SHARE_URL   = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/share';
+const PLAN_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/plan';
 
 // ── Active group ──────────────────────────────────────────
 
@@ -342,6 +343,45 @@ export const startCookSession   = (recipe) => cookPost('start', { recipe });
 export const advanceCookSession = ()       => cookPost('advance');
 export const backCookSession    = ()       => cookPost('back');
 export const getCookSession     = ()       => cookPost('get', {});
+
+// ── AI meal plan generation ──────────────────────────────
+
+async function planPost(body) {
+  const session = await Auth.currentSession();
+  const token   = session.getIdToken().getJwtToken();
+  const res = await fetch(PLAN_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: token },
+    body:    JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Plan request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export function generateMealPlan({ week, preferences, existingEntries, history }) {
+  if (!activeGroup) throw new Error('No active group');
+  return planPost({
+    action: 'generate',
+    groupId: activeGroup.groupId,
+    week,
+    preferences,
+    existingEntries,
+    history,
+  });
+}
+
+export function refineMealPlan({ currentPlan, refinement }) {
+  if (!activeGroup) throw new Error('No active group');
+  return planPost({
+    action: 'refine',
+    groupId: activeGroup.groupId,
+    currentPlan,
+    refinement,
+  });
+}
 
 // ── Data factories ────────────────────────────────────────
 

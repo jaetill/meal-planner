@@ -81,3 +81,10 @@ jobs:
             --function-name meal-planner-share \
             --zip-file fileb://lambda/share.zip \
             --region us-east-2
+      - name: Deploy plan Lambda
+        run: |
+          zip -j lambda/plan.zip lambda/plan.js
+          aws lambda update-function-code \
+            --function-name meal-planner-plan \
+            --zip-file fileb://lambda/plan.zip \
+            --region us-east-2

@@ -41,6 +41,7 @@ All POST routes require the Cognito authorizer. Claims available in Lambda as
 | GET /locations | meal-planner-kroger | None | Kroger store search by ZIP |
 | GET /products | meal-planner-kroger | None | Kroger product/price search |
 | POST /share | meal-planner-share | Cognito | Email recipe as Schema.org JSON via Postmark |
+| POST /plan | meal-planner-plan | Cognito | AI-assisted meal plan generation and refinement |
 
 ## Lambda files (`lambda/`)
 Each file is zipped and deployed independently by `deploy.yml`.
@@ -53,6 +54,7 @@ Each file is zipped and deployed independently by `deploy.yml`.
 | `kroger.js` | `meal-planner-kroger` | `KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET` |
 | `alexa.js` | `meal-planner-alexa` | `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
 | `share.js` | `meal-planner-share` | `POSTMARK_API_KEY`, `FROM_EMAIL` |
+| `plan.js` | `meal-planner-plan` | `ANTHROPIC_API_KEY` |
 
 ## S3 data layout
 ```
