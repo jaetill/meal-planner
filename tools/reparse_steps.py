@@ -200,7 +200,7 @@ def process_group(group_id, dry_run=False):
         if changed:
             changed_n += 1
             old_count = len(recipe.get('directions', []))
-            print(f'    {old_count} → {len(new_dirs)} steps')
+            print(f'    {old_count} -> {len(new_dirs)} steps')
             if not dry_run:
                 recipe['directions'] = new_dirs
 

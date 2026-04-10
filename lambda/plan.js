@@ -159,9 +159,9 @@ For plain-text items (no recipe), use this format instead:
 // ── Generate action ──────────────────────────────────────────
 
 async function handleGenerate(body) {
-  const { groupId, week, preferences = {}, existingEntries = [], history = [] } = body;
+  const { groupId, week, dates: rawDates, preferences = {}, existingEntries = [], history = [] } = body;
   if (!groupId) return respond(400, { error: 'Missing groupId' });
-  if (!week) return respond(400, { error: 'Missing week (Monday date)' });
+  if (!rawDates && !week) return respond(400, { error: 'Missing dates or week' });
 
   let recipes;
   try {
@@ -183,16 +183,28 @@ async function handleGenerate(body) {
     dayConstraints = {},
   } = preferences;
 
-  // Build the dates for the week (Mon–Sun)
-  const monday = new Date(week + 'T00:00:00');
-  const dates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(d.getDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
+  // Build the dates to plan — either explicit array or expand from week Monday
+  let dates;
+  if (rawDates && Array.isArray(rawDates) && rawDates.length > 0) {
+    dates = rawDates.sort();
+    if (dates.length > 14) return respond(400, { error: 'Date range cannot exceed 14 days' });
+  } else {
+    const monday = new Date(week + 'T00:00:00');
+    dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(d.getDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+  }
+
+  // Format dates with day names for the prompt
+  const dateLine = dates.map(d => {
+    const day = new Date(d + 'T00:00:00');
+    return `${d} (${day.toLocaleDateString('en-US', { weekday: 'short' })})`;
+  }).join(', ');
 
   let userPrompt = `## Recipe Catalog (${recipes.length} recipes)\n\n${digest}\n\n`;
-  userPrompt += `## Week to Plan\n${dates[0]} (Monday) through ${dates[6]} (Sunday)\n\n`;
+  userPrompt += `## Dates to Plan\n${dateLine}\n\n`;
   userPrompt += `## Meals to Fill\n${mealsToFill.join(', ')}\n\n`;
 
   if (targetCalories) {

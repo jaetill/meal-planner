@@ -95,6 +95,16 @@ function buildGroceryList(dateKeys, defaultServings) {
   const map = new Map();
 
   for (const entry of rangeEntries) {
+    // Plain items (no recipe, just a text label like "filet mignon")
+    if (entry.plainText) {
+      const name = entry.plainText;
+      const key  = `${name.toLowerCase().trim()}|`;
+      if (!map.has(key)) {
+        map.set(key, { name, unit: '', preparation: '', section: '', totalQty: 0, rawQty: '' });
+      }
+      continue;
+    }
+
     const recipe = recipes.find(r => r.id === entry.recipeId);
     if (!recipe) continue;
 
@@ -741,7 +751,7 @@ function showAisleAssignSheet(item, store, sortedGroups, currentGroupKey, onSave
 
 let staplesEditMode = false;
 
-function renderStaplesSection(container, store, checkedStaples, inAisleMode = false) {
+function renderStaplesSection(container, store, checkedStaples, inAisleMode = false, onCheck = null) {
   const wrapper = document.createElement('div');
   wrapper.className = 'mt-6';
 
@@ -840,7 +850,7 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
             totalQty:    parseQty(staple.quantity),
             rawQty:      staple.quantity || '',
           };
-          card.appendChild(makeItemRow(fakeItem, store, checkedStaples));
+          card.appendChild(makeItemRow(fakeItem, store, checkedStaples, null, onCheck));
         }
       }
 
@@ -917,8 +927,13 @@ export function renderGroceryList() {
   let endDate         = addDays(today, 6);
   let defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
 
-  const checked        = new Set();
-  const checkedStaples = new Set();
+  const checked        = new Set(JSON.parse(localStorage.getItem('groceryChecked') || '[]'));
+  const checkedStaples = new Set(JSON.parse(localStorage.getItem('groceryCheckedStaples') || '[]'));
+
+  function persistChecked() {
+    localStorage.setItem('groceryChecked', JSON.stringify([...checked]));
+    localStorage.setItem('groceryCheckedStaples', JSON.stringify([...checkedStaples]));
+  }
 
   function render() {
     container.innerHTML = '';
@@ -943,7 +958,8 @@ export function renderGroceryList() {
         startDate       = updated.startDate;
         endDate         = updated.endDate;
         defaultServings = updated.defaultServings;
-        checked.clear();
+        checked.clear(); checkedStaples.clear();
+        persistChecked();
         render();
       },
     });
@@ -990,7 +1006,7 @@ export function renderGroceryList() {
     clearBtn.type = 'button';
     clearBtn.textContent = 'Clear checks';
     clearBtn.className = 'text-xs text-gray-400 hover:text-gray-600';
-    clearBtn.onclick = () => { checked.clear(); render(); };
+    clearBtn.onclick = () => { checked.clear(); checkedStaples.clear(); persistChecked(); render(); };
 
     summaryRight.appendChild(clearBtn);
     summaryRow.appendChild(countEl);
@@ -1085,7 +1101,8 @@ export function renderGroceryList() {
 
         for (const item of groupItems) {
           card.appendChild(makeItemRow(item, store, checked,
-            (movedItem) => showAisleAssignSheet(movedItem, store, sortedGroups, groupKey, render)
+            (movedItem) => showAisleAssignSheet(movedItem, store, sortedGroups, groupKey, render),
+            persistChecked
           ));
         }
 
@@ -1123,7 +1140,7 @@ export function renderGroceryList() {
           const card = document.createElement('div');
           card.className = 'card divide-y divide-gray-50';
           for (const item of groupItems) {
-            card.appendChild(makeItemRow(item, store, checked));
+            card.appendChild(makeItemRow(item, store, checked, null, persistChecked));
           }
           groupEl.appendChild(card);
           container.appendChild(groupEl);
@@ -1132,7 +1149,7 @@ export function renderGroceryList() {
         const card = document.createElement('div');
         card.className = 'card divide-y divide-gray-50 mb-5';
         for (const item of items) {
-          card.appendChild(makeItemRow(item, store, checked));
+          card.appendChild(makeItemRow(item, store, checked, null, persistChecked));
         }
         container.appendChild(card);
       }
@@ -1156,7 +1173,7 @@ export function renderGroceryList() {
       }
     }
 
-    renderStaplesSection(container, store, checkedStaples, allAislesCached);
+    renderStaplesSection(container, store, checkedStaples, allAislesCached, persistChecked);
   }
 
   render();
@@ -1164,7 +1181,7 @@ export function renderGroceryList() {
 
 // ── Item row builder ───────────────────────────────────────
 
-function makeItemRow(item, store, checked, onMove = null) {
+function makeItemRow(item, store, checked, onMove = null, onCheck = null) {
   const key       = `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
   const isChecked = checked.has(key);
 
@@ -1179,6 +1196,7 @@ function makeItemRow(item, store, checked, onMove = null) {
     if (checkbox.checked) checked.add(key); else checked.delete(key);
     row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${checkbox.checked ? ' opacity-40' : ''}`;
     textEl.classList.toggle('line-through', checkbox.checked);
+    if (onCheck) onCheck();
   };
 
   const textEl = document.createElement('span');

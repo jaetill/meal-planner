@@ -368,12 +368,12 @@ async function planPost(body) {
   return res.json();
 }
 
-export function generateMealPlan({ week, preferences, existingEntries, history }) {
+export function generateMealPlan({ dates, preferences, existingEntries, history }) {
   if (!activeGroup) throw new Error('No active group');
   return planPost({
     action: 'generate',
     groupId: activeGroup.groupId,
-    week,
+    dates,
     preferences,
     existingEntries,
     history,

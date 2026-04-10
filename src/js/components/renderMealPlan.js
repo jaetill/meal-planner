@@ -467,6 +467,37 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   header.appendChild(closeBtn);
   sheet.appendChild(header);
 
+  // Plan dates (start / end)
+  const dateLabel = document.createElement('span');
+  dateLabel.className = 'block text-sm font-medium text-gray-700 mb-1';
+  dateLabel.textContent = 'Plan dates';
+  sheet.appendChild(dateLabel);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dateRow = document.createElement('div');
+  dateRow.className = 'flex items-center gap-2 mb-4';
+
+  const startInput = document.createElement('input');
+  startInput.type = 'date';
+  startInput.value = toDateKey(today);
+  startInput.className = 'field';
+
+  const dateSep = document.createElement('span');
+  dateSep.className = 'text-gray-400 text-sm';
+  dateSep.textContent = '—';
+
+  const endInput = document.createElement('input');
+  endInput.type = 'date';
+  endInput.value = toDateKey(addDays(today, 6));
+  endInput.className = 'field';
+
+  dateRow.appendChild(startInput);
+  dateRow.appendChild(dateSep);
+  dateRow.appendChild(endInput);
+  sheet.appendChild(dateRow);
+
   // Target calories
   const calLabel = document.createElement('label');
   calLabel.className = 'block text-sm font-medium text-gray-700 mb-1';
@@ -526,41 +557,57 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   const daysGrid = document.createElement('div');
   daysGrid.className = 'space-y-1 mb-4';
 
-  for (let i = 0; i < 7; i++) {
-    const day = addDays(weekStart, i);
-    const dateKey = toDateKey(day);
-    dayConstraints[dateKey] = 'normal';
+  function rebuildDaysGrid() {
+    daysGrid.innerHTML = '';
+    // Clear old constraints
+    for (const k of Object.keys(dayConstraints)) delete dayConstraints[k];
 
-    const row = document.createElement('div');
-    row.className = 'flex items-center gap-2';
+    const start = new Date(startInput.value + 'T00:00:00');
+    const end = new Date(endInput.value + 'T00:00:00');
+    const dayCount = Math.round((end - start) / 86400000) + 1;
+    if (dayCount < 1 || dayCount > 14) return;
 
-    const dayName = document.createElement('span');
-    dayName.className = 'text-xs text-gray-600 w-12 shrink-0';
-    dayName.textContent = day.toLocaleDateString('en-US', { weekday: 'short' });
-    row.appendChild(dayName);
+    for (let i = 0; i < dayCount; i++) {
+      const day = addDays(start, i);
+      const dateKey = toDateKey(day);
+      dayConstraints[dateKey] = 'normal';
 
-    const chipGroup = document.createElement('div');
-    chipGroup.className = 'flex gap-1';
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
 
-    const chips = CONSTRAINT_OPTIONS.map(opt => {
-      const c = document.createElement('button');
-      c.type = 'button';
-      c.textContent = opt;
-      c.className = `text-xs px-2 py-0.5 rounded-full ${opt === 'normal' ? CONSTRAINT_STYLES[opt] + ' ring-1 ring-gray-300' : CONSTRAINT_STYLES[opt]}`;
-      c.onclick = () => {
-        dayConstraints[dateKey] = opt;
-        chips.forEach(ch => {
-          const o = ch.textContent;
-          ch.className = `text-xs px-2 py-0.5 rounded-full ${CONSTRAINT_STYLES[o]}${o === opt ? ' ring-1 ring-gray-300' : ''}`;
-        });
-      };
-      chipGroup.appendChild(c);
-      return c;
-    });
+      const dayName = document.createElement('span');
+      dayName.className = 'text-xs text-gray-600 w-20 shrink-0';
+      dayName.textContent = day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      row.appendChild(dayName);
 
-    row.appendChild(chipGroup);
-    daysGrid.appendChild(row);
+      const chipGroup = document.createElement('div');
+      chipGroup.className = 'flex gap-1';
+
+      const chips = CONSTRAINT_OPTIONS.map(opt => {
+        const c = document.createElement('button');
+        c.type = 'button';
+        c.textContent = opt;
+        c.className = `text-xs px-2 py-0.5 rounded-full ${opt === 'normal' ? CONSTRAINT_STYLES[opt] + ' ring-1 ring-gray-300' : CONSTRAINT_STYLES[opt]}`;
+        c.onclick = () => {
+          dayConstraints[dateKey] = opt;
+          chips.forEach(ch => {
+            const o = ch.textContent;
+            ch.className = `text-xs px-2 py-0.5 rounded-full ${CONSTRAINT_STYLES[o]}${o === opt ? ' ring-1 ring-gray-300' : ''}`;
+          });
+        };
+        chipGroup.appendChild(c);
+        return c;
+      });
+
+      row.appendChild(chipGroup);
+      daysGrid.appendChild(row);
+    }
   }
+
+  startInput.onchange = rebuildDaysGrid;
+  endInput.onchange = rebuildDaysGrid;
+  rebuildDaysGrid();
+
   sheet.appendChild(daysGrid);
 
   // Notes
@@ -579,6 +626,17 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   const genBtn = btn('Generate Plan', 'primary');
   genBtn.className += ' w-full';
   genBtn.onclick = async () => {
+    // Validate date range
+    const planDates = Object.keys(dayConstraints).sort();
+    if (planDates.length === 0) {
+      toastError('Select at least one day to plan.');
+      return;
+    }
+    if (planDates.length > 14) {
+      toastError('Date range cannot exceed 14 days.');
+      return;
+    }
+
     const targetCalories = parseInt(calInput.value) || null;
     if (targetCalories) localStorage.setItem('aiPlanCalories', targetCalories);
 
@@ -588,12 +646,13 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
       if (v !== 'normal') constraints[k] = v;
     }
 
-    // Gather existing entries for this week
-    const weekDates = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));
-    const existingEntries = mealPlans.filter(e => weekDates.includes(e.date));
+    // Gather existing entries for the selected dates
+    const dateSet = new Set(planDates);
+    const existingEntries = mealPlans.filter(e => dateSet.has(e.date));
 
-    // Gather 2 weeks of history before this week
-    const histStart = addDays(weekStart, -14);
+    // Gather 2 weeks of history before the start date
+    const rangeStart = new Date(planDates[0] + 'T00:00:00');
+    const histStart = addDays(rangeStart, -14);
     const histDates = Array.from({ length: 14 }, (_, i) => toDateKey(addDays(histStart, i)));
     const history = mealPlans.filter(e => histDates.includes(e.date));
 
@@ -602,7 +661,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
     try {
       const result = await generateMealPlan({
-        week: toDateKey(weekStart),
+        dates: planDates,
         preferences: {
           targetCalories,
           dietaryNotes: notesInput.value.trim() || undefined,
@@ -614,7 +673,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
       });
 
       overlay.remove();
-      showAIPlanReview(weekStart, result, onPlanAccepted);
+      showAIPlanReview(planDates, result, onPlanAccepted);
     } catch (err) {
       toastError(err.message || 'Could not generate plan. Try again.');
       genBtn.disabled = false;
@@ -630,7 +689,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
 // ── AI Plan review overlay ───────────────────────────────────
 
-function showAIPlanReview(weekStart, result, onAccepted) {
+function showAIPlanReview(planDates, result, onAccepted) {
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4';
 
@@ -686,9 +745,8 @@ function showAIPlanReview(weekStart, result, onAccepted) {
     }
 
     // Day cards
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(weekStart, i);
-      const dateKey = toDateKey(day);
+    for (const dateKey of planDates) {
+      const day = new Date(dateKey + 'T00:00:00');
       const dayPlan = (currentResult.plan || []).filter(e => e.date === dateKey);
 
       if (dayPlan.length === 0) continue;
@@ -734,7 +792,7 @@ function showAIPlanReview(weekStart, result, onAccepted) {
               overlay.remove();
               renderRecipeView(recipe, () => {
                 // Re-show review when coming back
-                showAIPlanReview(weekStart, currentResult, onAccepted);
+                showAIPlanReview(planDates, currentResult, onAccepted);
               });
             };
           }
@@ -869,11 +927,11 @@ function showAIPlanReview(weekStart, result, onAccepted) {
       });
 
       // Merge: keep existing entries that don't conflict with new ones
-      const weekDates = new Set(Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i))));
+      const plannedDates = new Set(planDates);
       const newSlots = new Set(newEntries.map(e => `${e.date}|${e.meal}`));
 
       const kept = mealPlans.filter(e => {
-        if (!weekDates.has(e.date)) return true; // outside this week — keep
+        if (!plannedDates.has(e.date)) return true; // outside planned range — keep
         return !newSlots.has(`${e.date}|${e.meal}`); // not conflicting — keep
       });
 
