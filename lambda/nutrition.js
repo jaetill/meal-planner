@@ -5,16 +5,23 @@
 // 3. Scales per-100g nutrients to the actual quantity
 // 4. Falls back to Claude for full estimation if USDA has no match
 //
-// Environment variables required:
-//   USDA_API_KEY      — from fdc.nal.usda.gov
-//   ANTHROPIC_API_KEY — from console.anthropic.com
+// Secrets: USDA_API_KEY, ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
 
 'use strict';
 
 const https = require('https');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
-const USDA_KEY      = process.env.USDA_API_KEY;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const smClient = new SecretsManagerClient({ region: 'us-east-2' });
+
+let _secrets;
+async function getSecrets() {
+  if (!_secrets) {
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    _secrets = JSON.parse(res.SecretString);
+  }
+  return _secrets;
+}
 
 const ALLOWED_ORIGINS = new Set([
   'https://meals.jaetill.com',
@@ -54,6 +61,8 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: { ...CORS, 'Access-Control-Allow-Methods': 'GET,OPTIONS' }, body: '' };
   }
 
+  await getSecrets();
+
   const { name, quantity, unit } = event.queryStringParameters || {};
   if (!name) return respond(400, { error: 'name required' }, CORS);
 
@@ -82,7 +91,7 @@ exports.handler = async (event) => {
 // ── USDA search ───────────────────────────────────────────────────────────────
 
 async function searchUSDA(name) {
-  const url = `/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=5&api_key=${USDA_KEY}`;
+  const url = `/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=5&api_key=${_secrets.USDA_API_KEY}`;
   const res  = await httpsRequest({ hostname: 'api.nal.usda.gov', path: url, method: 'GET' });
 
   if (res.statusCode !== 200) return null;
@@ -195,7 +204,7 @@ async function callClaude(prompt) {
     path:     '/v1/messages',
     method:   'POST',
     headers:  {
-      'x-api-key':         ANTHROPIC_KEY,
+      'x-api-key':         _secrets.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
       'Content-Type':      'application/json',
       'Content-Length':    Buffer.byteLength(body),

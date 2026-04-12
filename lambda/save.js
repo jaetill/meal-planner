@@ -4,10 +4,22 @@
 //   POST /cook   — read/write cook session at cook-sessions/{userId}.json
 //
 // Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
-// Environment variables: ANTHROPIC_API_KEY
+// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
 
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const https = require('https');
+
+const smClient = new SecretsManagerClient({ region: 'us-east-2' });
+
+let _secrets;
+async function getSecrets() {
+  if (!_secrets) {
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    _secrets = JSON.parse(res.SecretString);
+  }
+  return _secrets;
+}
 
 const BUCKET       = 'jaetill-meal-planner';
 const ALLOWED_KEYS = ['recipes.json', 'meal-plans.json', 'staples.json', 'aisle-orders.json'];
@@ -142,7 +154,7 @@ function callClaude(prompt, maxTokens = 1024) {
       method:   'POST',
       headers:  {
         'Content-Type':      'application/json',
-        'x-api-key':         process.env.ANTHROPIC_API_KEY,
+        'x-api-key':         _secrets.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
       },
     }, res => {
@@ -503,6 +515,8 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
   }
+
+  await getSecrets();
 
   const path = event.path || '';
   if (path.endsWith('/import'))  return handleImport(event);

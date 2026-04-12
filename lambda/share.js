@@ -1,11 +1,23 @@
 // meal-planner-share Lambda
-// Env vars: POSTMARK_API_KEY, FROM_EMAIL (default: jason@jaetill.com)
+// Secrets: POSTMARK_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+// Env vars: FROM_EMAIL (default: jason@jaetill.com)
 // API Gateway must have a Cognito authorizer so claims are present.
 
 const https = require('https');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
-const POSTMARK_API_KEY = process.env.POSTMARK_API_KEY;
-const FROM_EMAIL       = process.env.FROM_EMAIL || 'jason@jaetill.com';
+const smClient = new SecretsManagerClient({ region: 'us-east-2' });
+
+let _secrets;
+async function getSecrets() {
+  if (!_secrets) {
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    _secrets = JSON.parse(res.SecretString);
+  }
+  return _secrets;
+}
+
+const FROM_EMAIL = process.env.FROM_EMAIL || 'jason@jaetill.com';
 
 const ALLOWED_ORIGINS = new Set(['https://meals.jaetill.com', 'http://localhost:5173']);
 const CORS = {
@@ -85,7 +97,7 @@ function postmark(msg) {
       headers:  {
         'Accept':                  'application/json',
         'Content-Type':            'application/json',
-        'X-Postmark-Server-Token': POSTMARK_API_KEY,
+        'X-Postmark-Server-Token': _secrets.POSTMARK_API_KEY,
         'Content-Length':          Buffer.byteLength(body),
       },
     }, res => {
@@ -108,6 +120,8 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers, body: '' };
   }
+
+  await getSecrets();
 
   const userId = event.requestContext?.authorizer?.claims?.['cognito:username'];
   if (!userId) {

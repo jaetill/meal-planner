@@ -2,13 +2,25 @@
 //   POST /plan — generate or refine a weekly meal plan using Claude
 //
 // Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
-// Environment variables: ANTHROPIC_API_KEY
+// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
 // S3 paths read: groups/{groupId}/recipes.json
 
 'use strict';
 
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const https = require('https');
+
+const smClient = new SecretsManagerClient({ region: 'us-east-2' });
+
+let _secrets;
+async function getSecrets() {
+  if (!_secrets) {
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    _secrets = JSON.parse(res.SecretString);
+  }
+  return _secrets;
+}
 
 const BUCKET = 'jaetill-meal-planner';
 const s3     = new S3Client({ region: 'us-east-2' });
@@ -47,7 +59,7 @@ function callClaude(system, userPrompt) {
       method:   'POST',
       headers:  {
         'Content-Type':      'application/json',
-        'x-api-key':         process.env.ANTHROPIC_API_KEY,
+        'x-api-key':         _secrets.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
       },
     }, res => {
@@ -330,6 +342,8 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
   }
+
+  await getSecrets();
 
   const userId = event.requestContext?.authorizer?.claims?.['cognito:username'];
   if (!userId) return respond(401, { error: 'Unauthorized' });

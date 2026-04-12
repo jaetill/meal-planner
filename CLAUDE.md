@@ -22,7 +22,8 @@ Hosted at **https://meals.jaetill.com**.
 | CloudFront distribution | `E301SUJKLJO7A7` → `meals.jaetill.com` |
 | API Gateway | `e2h43o5aje` (prod stage) |
 | Cognito user pool | `us-east-2_xneeJzaDJ` |
-| Lambda execution role | `arn:aws:iam::214599503944:role/service-role/MealPlannerSave-role-c47ma2hi` |
+| Lambda execution role (S3) | `MealPlannerSave-role-c47ma2hi` — save, groups, plan, alexa |
+| Lambda execution role (no S3) | `meal-planner-noaws-role` — nutrition, kroger, share |
 | GitHub deploy role | `meal-planner-github-deploy` (OIDC) |
 | Region | `us-east-2` |
 
@@ -46,15 +47,19 @@ All POST routes require the Cognito authorizer. Claims available in Lambda as
 ## Lambda files (`lambda/`)
 Each file is zipped and deployed independently by `deploy.yml`.
 
-| File | Function name | Key env vars |
+| File | Function name | Secrets / env vars |
 |---|---|---|
-| `save.js` | `MealPlannerSave` | `ANTHROPIC_API_KEY` |
+| `save.js` | `MealPlannerSave` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
 | `groups.js` | `meal-planner-groups` | — |
-| `nutrition.js` | `meal-planner-nutrition` | `USDA_API_KEY`, `ANTHROPIC_API_KEY` |
-| `kroger.js` | `meal-planner-kroger` | `KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET` |
-| `alexa.js` | `meal-planner-alexa` | `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
-| `share.js` | `meal-planner-share` | `POSTMARK_API_KEY`, `FROM_EMAIL` |
-| `plan.js` | `meal-planner-plan` | `ANTHROPIC_API_KEY` |
+| `nutrition.js` | `meal-planner-nutrition` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`, `USDA_API_KEY`) |
+| `kroger.js` | `meal-planner-kroger` | SM: `meal-planner/secrets` (`KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET`) |
+| `alexa.js` | `meal-planner-alexa` | env: `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
+| `share.js` | `meal-planner-share` | SM: `meal-planner/secrets` (`POSTMARK_API_KEY`); env: `FROM_EMAIL` |
+| `plan.js` | `meal-planner-plan` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
+
+**Secrets Manager:** All API keys are in `meal-planner/secrets` (us-east-2).
+Secrets are cached in Lambda module scope — fetched once per cold start (~50-100ms),
+reused across warm invocations.
 
 ## S3 data layout
 ```

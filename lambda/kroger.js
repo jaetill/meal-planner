@@ -1,17 +1,25 @@
 // Lambda: GET /locations?zip=<zip>          — find nearby Kroger/Harris Teeter stores
 //         GET /products?q=<term>&locationId=<id> — search products with prices
 //
-// Environment variables required:
-//   KROGER_CLIENT_ID     — from developer.kroger.com
-//   KROGER_CLIENT_SECRET — from developer.kroger.com
+// Secrets: KROGER_CLIENT_ID, KROGER_CLIENT_SECRET from AWS Secrets Manager (meal-planner/secrets)
 
 'use strict';
 
 const https = require('https');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
-const CLIENT_ID     = process.env.KROGER_CLIENT_ID;
-const CLIENT_SECRET = process.env.KROGER_CLIENT_SECRET;
-const KROGER_BASE   = 'api.kroger.com';
+const smClient = new SecretsManagerClient({ region: 'us-east-2' });
+
+let _secrets;
+async function getSecrets() {
+  if (!_secrets) {
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    _secrets = JSON.parse(res.SecretString);
+  }
+  return _secrets;
+}
+
+const KROGER_BASE = 'api.kroger.com';
 
 const ALLOWED_ORIGINS = new Set([
   'https://meals.jaetill.com',
@@ -41,6 +49,8 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS' || event.requestContext?.http?.method === 'OPTIONS') {
     return { statusCode: 200, headers: { ...CORS, 'Access-Control-Allow-Methods': 'GET,OPTIONS' }, body: '' };
   }
+
+  await getSecrets();
 
   const path   = event.rawPath || event.path || '';
   const params = event.queryStringParameters || {};
@@ -77,7 +87,7 @@ exports.handler = async (event) => {
 async function getToken() {
   if (cachedToken && Date.now() < tokenExpiresAt - 60_000) return cachedToken;
 
-  const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+  const credentials = Buffer.from(`${_secrets.KROGER_CLIENT_ID}:${_secrets.KROGER_CLIENT_SECRET}`).toString('base64');
   const body        = 'grant_type=client_credentials&scope=product.compact';
 
   const res = await httpsRequest({
