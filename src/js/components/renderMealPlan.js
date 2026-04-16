@@ -368,6 +368,8 @@ function showPicker(dateKey, onSave) {
   listEl.className = 'overflow-y-auto flex-1 space-y-1';
   sheet.appendChild(listEl);
 
+  let highlightIdx = -1;
+
   async function addPlainItem(text) {
     const entry = {
       id: crypto.randomUUID(),
@@ -384,8 +386,21 @@ function showPicker(dateKey, onSave) {
     }
   }
 
+  function updateHighlight() {
+    const rows = listEl.querySelectorAll('button');
+    rows.forEach((row, i) => {
+      const isActive = i === highlightIdx;
+      if (row.dataset.quickAdd) {
+        row.className = `w-full text-left px-3 py-2 rounded-lg text-sm text-blue-700 border border-dashed border-blue-200 mb-1 ${isActive ? 'bg-blue-100' : 'hover:bg-blue-50'}`;
+      } else {
+        row.className = `w-full text-left px-3 py-2 rounded-lg text-sm text-gray-800 ${isActive ? 'bg-green-100' : 'hover:bg-green-50'}`;
+      }
+    });
+  }
+
   function renderList(query = '') {
     listEl.innerHTML = '';
+    highlightIdx = -1;
     const filtered = query
       ? recipes.filter(r => r.name.toLowerCase().includes(query.toLowerCase()))
       : [...recipes].sort((a, b) => a.name.localeCompare(b.name));
@@ -394,6 +409,7 @@ function showPicker(dateKey, onSave) {
     if (query) {
       const quickRow = document.createElement('button');
       quickRow.type = 'button';
+      quickRow.dataset.quickAdd = '1';
       quickRow.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-sm text-blue-700 border border-dashed border-blue-200 mb-1';
       quickRow.textContent = `+ Add "${query}" as quick item`;
       quickRow.onclick = () => addPlainItem(query);
@@ -431,6 +447,26 @@ function showPicker(dateKey, onSave) {
     }
   }
 
+  searchInput.addEventListener('keydown', e => {
+    const rows = listEl.querySelectorAll('button');
+    if (!rows.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlightIdx = Math.min(highlightIdx + 1, rows.length - 1);
+      updateHighlight();
+      rows[highlightIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightIdx = Math.max(highlightIdx - 1, -1);
+      updateHighlight();
+      if (highlightIdx >= 0) rows[highlightIdx]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && highlightIdx >= 0) {
+      e.preventDefault();
+      rows[highlightIdx]?.click();
+    }
+  });
+
   searchInput.oninput = () => renderList(searchInput.value.trim());
   renderList();
 
@@ -443,6 +479,16 @@ function showPicker(dateKey, onSave) {
 // ── AI Plan preferences modal ────────────────────────────────
 
 function showAIPlanModal(weekStart, onPlanAccepted) {
+  // Request geolocation early so the browser prompt appears while user is filling in preferences
+  let userLocation = null;
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => { userLocation = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }; },
+      () => { /* location unavailable — weather context will be skipped */ },
+      { timeout: 10000, maximumAge: 600000 }
+    );
+  }
+
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
 
@@ -670,6 +716,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
         },
         existingEntries,
         history,
+        location: userLocation || undefined,
       });
 
       overlay.remove();

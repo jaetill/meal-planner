@@ -368,7 +368,7 @@ async function planPost(body) {
   return res.json();
 }
 
-export function generateMealPlan({ dates, preferences, existingEntries, history }) {
+export function generateMealPlan({ dates, preferences, existingEntries, history, location }) {
   if (!activeGroup) throw new Error('No active group');
   return planPost({
     action: 'generate',
@@ -377,6 +377,7 @@ export function generateMealPlan({ dates, preferences, existingEntries, history 
     preferences,
     existingEntries,
     history,
+    location,
   });
 }
 

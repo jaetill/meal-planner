@@ -134,7 +134,7 @@ function buildRecipeDigest(recipes) {
 
 // ── System prompt ────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a meal planning assistant. Given a recipe catalog and constraints, create a weekly meal plan.
+const SYSTEM_PROMPT = `You are a meal planning assistant. Given a recipe catalog, weather forecast, seasonal produce info, and constraints, create a weekly meal plan.
 
 Optimize for:
 1. Nutritional balance — hit daily calorie and macro targets when provided
@@ -147,14 +147,23 @@ Optimize for:
    - "none" = skip this day entirely (eating out, no cooking)
 5. Practical flow — schedule batch-cook-friendly or crockpot meals earlier in the week when possible
 6. Leftovers — when a recipe makes more servings than needed, suggest eating leftovers for a subsequent lunch or dinner instead of cooking a new meal. Mark leftover entries with plainText like "Leftovers: [Recipe Name]".
+7. Complete meals — dinner entries should be full meals, not just a single dish. If a recipe is only a main (e.g. "Garlic Chicken"), add a plainText side dish or two to complement it (e.g. "Steamed broccoli and rice"). Use your judgment: a recipe like "Chicken Stir Fry with Rice" is already complete, but "Grilled Salmon" needs sides. Breakfasts and lunches can be standalone.
+8. Weather awareness — when a weather forecast is provided, factor it in:
+   - Hot days (85°F+): favor lighter meals, salads, no-cook options, grilling if not rainy
+   - Rainy/stormy days: skip grilling, favor indoor cooking, comfort food is fine
+   - Cold days: soups, stews, hearty meals are great choices
+   - Nice mild weather: good grilling days
+   These are soft preferences, not hard rules. Use common sense.
+9. Seasonal produce — when seasonal produce info is provided, lean toward recipes that feature in-season ingredients. This is a soft preference for flavor and cost — never exclude a recipe just because it uses a pantry staple (onions, garlic, potatoes, canned goods) that isn't "in season." Seasonality applies to fresh produce highlights, not staples.
 
 Rules:
 - Only assign recipes from the provided catalog. Never invent recipes.
 - Use the recipe ID exactly as given.
-- For meals not in the catalog (like a simple breakfast or leftovers), use a plainText entry instead of a recipeId.
+- For meals not in the catalog (like a simple breakfast, leftovers, or side dishes), use a plainText entry instead of a recipeId.
 - If existing meals are already planned for certain slots, work around them.
 - Consider the recent meal history to avoid repeating meals from the last 1-2 weeks.
 - For days marked "none", do not plan any meals.
+- Multiple entries per meal slot are fine (e.g. a recipe main + a plainText side for one dinner).
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -168,10 +177,83 @@ Return ONLY valid JSON matching this exact structure:
 For plain-text items (no recipe), use this format instead:
 { "date": "YYYY-MM-DD", "meal": "Breakfast", "plainText": "Oatmeal with berries", "reasoning": "Quick healthy breakfast" }`;
 
+// ── Weather forecast (Open-Meteo) ────────────────────────
+
+function fetchWeather(latitude, longitude, dates) {
+  const startDate = dates[0];
+  const endDate = dates[dates.length - 1];
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&temperature_unit=fahrenheit&start_date=${startDate}&end_date=${endDate}&timezone=America%2FNew_York`;
+
+  return new Promise((resolve) => {
+    https.get(url, res => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.daily) return resolve(null);
+          const forecast = data.daily.time.map((date, i) => ({
+            date,
+            highF: Math.round(data.daily.temperature_2m_max[i]),
+            lowF: Math.round(data.daily.temperature_2m_min[i]),
+            precipMm: data.daily.precipitation_sum[i],
+            code: data.daily.weathercode[i],
+          }));
+          resolve(forecast);
+        } catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+const WMO_CONDITIONS = {
+  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+  61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain',
+  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 80: 'Rain showers', 81: 'Rain showers',
+  82: 'Heavy rain showers', 85: 'Snow showers', 86: 'Heavy snow showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ hail',
+};
+
+function formatForecast(forecast) {
+  return forecast.map(d => {
+    const cond = WMO_CONDITIONS[d.code] || 'Unknown';
+    const rain = d.precipMm > 0 ? `, ${d.precipMm}mm precip` : '';
+    return `${d.date}: High ${d.highF}°F / Low ${d.lowF}°F, ${cond}${rain}`;
+  }).join('\n');
+}
+
+// ── Seasonal produce lookup ─────────────────────────────
+
+const SEASONAL_PRODUCE = {
+  1:  'citrus (oranges, grapefruit, lemons), kale, sweet potatoes, winter squash, cabbage, leeks, parsnips, turnips, beets, Brussels sprouts',
+  2:  'citrus, kale, sweet potatoes, winter squash, cabbage, leeks, parsnips, turnips, beets',
+  3:  'citrus, kale, spinach, lettuce, radishes, early peas, green onions, mushrooms',
+  4:  'asparagus, peas, spinach, strawberries, radishes, artichokes, spring onions, lettuce, rhubarb, morel mushrooms',
+  5:  'asparagus, strawberries, cherries, peas, spinach, lettuce, zucchini, snap peas, green beans, herbs (basil, cilantro, mint)',
+  6:  'strawberries, blueberries, cherries, peaches, tomatoes, zucchini, corn, bell peppers, cucumbers, green beans, watermelon',
+  7:  'tomatoes, corn, peaches, blueberries, blackberries, watermelon, zucchini, summer squash, bell peppers, cucumbers, eggplant, okra, green beans',
+  8:  'tomatoes, corn, peaches, melons, figs, bell peppers, eggplant, okra, zucchini, summer squash, grapes, plums',
+  9:  'apples, grapes, pears, figs, tomatoes, bell peppers, eggplant, winter squash (early), sweet potatoes, broccoli',
+  10: 'apples, pears, pumpkin, winter squash, sweet potatoes, cranberries, Brussels sprouts, broccoli, cauliflower, kale',
+  11: 'apples, pears, cranberries, winter squash, sweet potatoes, kale, Brussels sprouts, parsnips, turnips, pomegranate',
+  12: 'citrus, kale, sweet potatoes, winter squash, pomegranate, cranberries, parsnips, turnips, Brussels sprouts, cabbage',
+};
+
+function getSeasonalProduce(dates) {
+  const months = new Set(dates.map(d => parseInt(d.split('-')[1], 10)));
+  const lines = [];
+  for (const m of months) {
+    const monthName = new Date(2024, m - 1, 1).toLocaleString('en-US', { month: 'long' });
+    lines.push(`${monthName}: ${SEASONAL_PRODUCE[m]}`);
+  }
+  return lines.join('\n');
+}
+
 // ── Generate action ──────────────────────────────────────────
 
 async function handleGenerate(body) {
-  const { groupId, week, dates: rawDates, preferences = {}, existingEntries = [], history = [] } = body;
+  const { groupId, week, dates: rawDates, preferences = {}, existingEntries = [], history = [], location } = body;
   if (!groupId) return respond(400, { error: 'Missing groupId' });
   if (!rawDates && !week) return respond(400, { error: 'Missing dates or week' });
 
@@ -209,6 +291,18 @@ async function handleGenerate(body) {
     });
   }
 
+  // Fetch weather forecast (non-blocking — don't fail the plan if weather is unavailable)
+  let weatherText = null;
+  if (location?.latitude && location?.longitude) {
+    try {
+      const forecast = await fetchWeather(location.latitude, location.longitude, dates);
+      if (forecast) weatherText = formatForecast(forecast);
+    } catch { /* weather is optional */ }
+  }
+
+  // Seasonal produce for the plan's months
+  const seasonalText = getSeasonalProduce(dates);
+
   // Format dates with day names for the prompt
   const dateLine = dates.map(d => {
     const day = new Date(d + 'T00:00:00');
@@ -218,6 +312,14 @@ async function handleGenerate(body) {
   let userPrompt = `## Recipe Catalog (${recipes.length} recipes)\n\n${digest}\n\n`;
   userPrompt += `## Dates to Plan\n${dateLine}\n\n`;
   userPrompt += `## Meals to Fill\n${mealsToFill.join(', ')}\n\n`;
+
+  if (weatherText) {
+    userPrompt += `## Weather Forecast\n${weatherText}\n\n`;
+  }
+
+  if (seasonalText) {
+    userPrompt += `## Seasonal Produce (in season now)\n${seasonalText}\n\n`;
+  }
 
   if (targetCalories) {
     userPrompt += `## Daily Nutrition Target\n~${targetCalories} calories/day\n\n`;
