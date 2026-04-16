@@ -563,7 +563,8 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   mealsLabel.textContent = 'Meals to plan';
   sheet.appendChild(mealsLabel);
 
-  const selectedMeals = new Set(['Breakfast', 'Lunch', 'Dinner']);
+  const savedMeals = JSON.parse(localStorage.getItem('aiPlanMeals') || 'null') || ['Dinner'];
+  const selectedMeals = new Set(savedMeals);
   const mealsRow = document.createElement('div');
   mealsRow.className = 'flex gap-2 mb-4';
 
@@ -576,7 +577,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
         ? 'text-xs px-3 py-1 rounded-full bg-green-600 text-white font-medium'
         : 'text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600';
     };
-    setStyle(true);
+    setStyle(selectedMeals.has(meal));
     chip.onclick = () => {
       if (selectedMeals.has(meal)) { selectedMeals.delete(meal); setStyle(false); }
       else { selectedMeals.add(meal); setStyle(true); }
@@ -685,6 +686,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
     const targetCalories = parseInt(calInput.value) || null;
     if (targetCalories) localStorage.setItem('aiPlanCalories', targetCalories);
+    localStorage.setItem('aiPlanMeals', JSON.stringify([...selectedMeals]));
 
     // Filter out "normal" constraints — only send non-default
     const constraints = {};
@@ -973,13 +975,20 @@ function showAIPlanReview(planDates, result, onAccepted) {
         return base;
       });
 
-      // Merge: keep existing entries that don't conflict with new ones
+      // Merge: keep existing entries outside the planned range entirely.
+      // Within planned range, remove only entries that the AI echoed back
+      // (by matching recipeId or plainText) — keep manually-added items
+      // that the AI complemented rather than replaced.
       const plannedDates = new Set(planDates);
-      const newSlots = new Set(newEntries.map(e => `${e.date}|${e.meal}`));
+      const aiRecipeIds = new Set(newEntries.filter(e => e.recipeId).map(e => e.recipeId));
+      const aiPlainTexts = new Set(newEntries.filter(e => e.plainText).map(e => e.plainText.toLowerCase()));
 
       const kept = mealPlans.filter(e => {
         if (!plannedDates.has(e.date)) return true; // outside planned range — keep
-        return !newSlots.has(`${e.date}|${e.meal}`); // not conflicting — keep
+        // Within range: remove if the AI generated the same recipe or same plainText
+        if (e.recipeId && aiRecipeIds.has(e.recipeId)) return false;
+        if (e.plainText && aiPlainTexts.has(e.plainText.toLowerCase())) return false;
+        return true; // keep manually-added items the AI didn't duplicate
       });
 
       await saveMealPlans([...kept, ...newEntries]);
