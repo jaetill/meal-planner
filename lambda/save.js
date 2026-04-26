@@ -88,12 +88,16 @@ function httpsGet(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MealPlannerBot/1.0)',
-        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
     }, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return httpsGet(res.headers.location).then(resolve).catch(reject);
+      }
+      if (res.statusCode >= 400) {
+        return reject(new Error(`Fetch failed: HTTP ${res.statusCode}`));
       }
       let body = '';
       res.on('data', chunk => { body += chunk; });
@@ -424,6 +428,15 @@ async function handleImport(event) {
   try {
     const html   = await httpsGet(url);
     const schema = extractSchemaRecipe(html);
+    console.log('[import]', JSON.stringify({
+      url,
+      htmlLen: html.length,
+      htmlHead: html.slice(0, 300),
+      branch: schema ? 'schema' : 'claude',
+      schemaName: schema?.name,
+      schemaIngredients: schema?.recipeIngredient?.length,
+      schemaInstructions: schema?.recipeInstructions?.length,
+    }));
 
     let recipe;
     if (schema) {
@@ -432,6 +445,7 @@ async function handleImport(event) {
     } else {
       const text = stripHtml(html);
       recipe = await parseWithClaude(text, url);
+      recipe.source = url;
       // Normalize ingredients and directions
       recipe.ingredients = (recipe.ingredients || []).map(ing => ({
         id: crypto.randomUUID(),
