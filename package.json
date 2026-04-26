@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
-    "aws-amplify": "^5.3.32",
     "tailwindcss": "^4.2.1"
   }
 }

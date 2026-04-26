@@ -1,4 +1,4 @@
-import { Auth } from 'aws-amplify';
+import { getIdToken, parseIdToken } from '../auth.js';
 import { API_BASE } from '../config.js';
 
 const BUCKET      = 'https://meals.jaetill.com';
@@ -16,10 +16,9 @@ export let allGroups   = [];   // all groups the user belongs to
 export let currentUsername = null;
 
 export async function loadActiveGroup() {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
-  const user = await Auth.currentAuthenticatedUser();
-  currentUsername = user.username;
+  const token = getIdToken();
+  const claims = parseIdToken() || {};
+  currentUsername = claims['cognito:username'] || claims.sub;
 
   // Fetch user's groups from Lambda
   const res = await fetch(GROUPS_URL, { headers: { Authorization: token } });
@@ -92,8 +91,7 @@ async function fetchJSON(key) {
 // ── Write (via Lambda) ────────────────────────────────────
 
 async function saveJSON(key, data) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const body    = { key, data };
   if (activeGroup) body.groupId = activeGroup.groupId;
 
@@ -167,8 +165,7 @@ export async function saveRecipes(updated) {
 }
 
 export async function importRecipeFromUrl(url) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(IMPORT_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -185,8 +182,7 @@ export async function importRecipeFromUrl(url) {
 // ── Group management helpers (used by UI) ─────────────────
 
 export async function createGroupInvite(groupId) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -197,8 +193,7 @@ export async function createGroupInvite(groupId) {
 }
 
 export async function joinGroup(code) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -216,8 +211,7 @@ export async function joinGroup(code) {
 }
 
 export async function fetchGroupMembers(groupId) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(`${GROUPS_URL}?action=members&groupId=${groupId}`, {
     headers: { Authorization: token },
   });
@@ -226,8 +220,7 @@ export async function fetchGroupMembers(groupId) {
 }
 
 export async function shareRecipeByEmail(recipe, recipientEmail) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(SHARE_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -241,8 +234,7 @@ export async function shareRecipeByEmail(recipe, recipientEmail) {
 }
 
 export async function shareRecipe(recipe, targetUsername) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -256,8 +248,7 @@ export async function shareRecipe(recipe, targetUsername) {
 }
 
 export async function fetchIncomingShares() {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(`${GROUPS_URL}?action=incoming`, { headers: { Authorization: token } });
   if (!res.ok) return [];
   const { shares } = await res.json();
@@ -266,8 +257,7 @@ export async function fetchIncomingShares() {
 
 export async function acceptIncomingShare(shareId) {
   if (!activeGroup) throw new Error('No active group');
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -284,8 +274,7 @@ export async function acceptIncomingShare(shareId) {
 }
 
 export async function dismissIncomingShare(shareId) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -328,8 +317,7 @@ export function formatDuration(seconds) {
 // ── Cook session ──────────────────────────────────────────
 
 async function cookPost(action, extra = {}) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   const res = await fetch(COOK_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
@@ -347,8 +335,7 @@ export const getCookSession     = ()       => cookPost('get', {});
 // ── AI meal plan generation ──────────────────────────────
 
 async function planPost(body) {
-  const session = await Auth.currentSession();
-  const token   = session.getIdToken().getJwtToken();
+  const token = getIdToken();
   let res;
   try {
     res = await fetch(PLAN_URL, {

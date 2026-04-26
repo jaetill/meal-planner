@@ -2,3 +2,11 @@ node_modules
 dist
 .env
 uploads/
+
+# Lambda deploy artifacts
+lambda/*.zip
+
+# Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+.claude/mcp.json

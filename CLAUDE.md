@@ -7,13 +7,18 @@ Hosted at **https://meals.jaetill.com**.
 
 ## Tech stack
 - **Frontend**: Vite + Tailwind SPA. Two HTML entry points: `index.html` (app)
-  and `login.html` (Cognito-hosted UI redirect). Auth via `aws-amplify`.
+  and `callback.html` (OAuth redirect target). Auth via Cognito Hosted UI
+  (OAuth Authorization Code + PKCE), hand-rolled in `src/js/auth.js` — no
+  `aws-amplify` dependency.
 - **Backend**: API Gateway REST API → Lambda (Node.js 20). No shared runtime
   dependencies — Lambdas use only AWS SDK and Node built-ins.
 - **Storage**: S3 bucket `jaetill-meal-planner` (private, served via CloudFront).
 - **Auth**: Cognito user pool `us-east-2_xneeJzaDJ`, web client
-  `2g8kng7thvouq1ami8cm336gbb`. API Gateway has a single Cognito authorizer
-  (`o0c2k9`) on all authenticated routes.
+  `2g8kng7thvouq1ami8cm336gbb`, managed-login branding `fc0030b0-27fe-4c33-b492-e165435e73cf`.
+  API Gateway has a single Cognito authorizer (`o0c2k9`) on authenticated routes.
+- **Authz**: Group `meal-planner-users` required. Frontend `app.js` redirects
+  non-members to portal; Lambdas (`save`, `groups`, `plan`, `share`) return
+  403 if claim missing.
 
 ## AWS resources
 | Resource | Value |
@@ -85,8 +90,10 @@ photos/{recipeId}                    — recipe photo (uploaded during URL impor
 
 ## Frontend source (`src/js/`)
 ```
-app.js                     — init, nav tabs, auth guard
-config.js                  — API_BASE, Amplify/Cognito config
+auth.js                    — PKCE flow, token storage, JWT decode (mp.* localStorage keys)
+callback.js                — OAuth redirect handler (paired with /callback.html)
+app.js                     — init, nav tabs, auth + group gate (redirects to portal if not in meal-planner-users)
+config.js                  — API_BASE, Cognito Hosted UI config
 data/index.js              — all data access (load/save/share), URL constants
 data/nutrition.js          — nutrition fetch + per-serving calc
 data/kroger.js             — Kroger store/product fetching

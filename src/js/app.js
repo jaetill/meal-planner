@@ -1,17 +1,14 @@
-import { Amplify, Auth } from 'aws-amplify';
-import amplifyConfig from './config.js';
+import { isAuthenticated, startLogin, logout, parseIdToken } from './auth.js';
 import { loadRecipes, loadMealPlans, loadActiveGroup, loadStaples, loadAisleOrders } from './data/index.js';
 import { renderRecipes } from './components/renderRecipes.js';
 import { renderMealPlan } from './components/renderMealPlan.js';
 import { renderGroceryList } from './components/renderGroceryList.js';
 import { renderGroupSettings } from './components/renderGroupSettings.js';
 
-Amplify.configure(amplifyConfig);
+const PORTAL_URL     = 'https://jaetill.com';
+const REQUIRED_GROUP = 'meal-planner-users';
 
-document.getElementById('sign-out-btn').addEventListener('click', async () => {
-  await Auth.signOut();
-  window.location.href = 'login.html';
-});
+document.getElementById('sign-out-btn').addEventListener('click', () => logout());
 
 // ── Nav ───────────────────────────────────────────────────
 
@@ -37,10 +34,16 @@ navGroup.onclick    = () => { setActiveNav('group');    renderGroupSettings(); }
 // ── Init ──────────────────────────────────────────────────
 
 async function init() {
-  try {
-    await Auth.currentAuthenticatedUser();
-  } catch {
-    window.location.href = 'login.html';
+  // Auth gate
+  if (!isAuthenticated()) {
+    return startLogin();
+  }
+
+  // Authz gate: must be in meal-planner-users group
+  const claims = parseIdToken() || {};
+  const groups = Array.isArray(claims['cognito:groups']) ? claims['cognito:groups'] : [];
+  if (!groups.includes(REQUIRED_GROUP)) {
+    window.location.replace(PORTAL_URL);
     return;
   }
 

@@ -440,9 +440,22 @@ async function handleRefine(body) {
 
 // ── Main handler ─────────────────────────────────────────────
 
+// Group authz — caller must be in meal-planner-users
+function requireGroup(event, group) {
+  const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
+  const groups = Array.isArray(claim)
+    ? claim
+    : String(claim || '').replace(/^\[|\]$/g, '').split(/[\s,]+/).filter(Boolean);
+  return groups.includes(group);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
+  }
+
+  if (!requireGroup(event, 'meal-planner-users')) {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Forbidden: not a meal-planner-users group member' }) };
   }
 
   await getSecrets();
