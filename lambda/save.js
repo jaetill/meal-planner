@@ -145,13 +145,16 @@ async function storePhoto(photoUrl, recipeId) {
 }
 
 function callClaude(prompt, maxTokens = 1024) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      messages:   [{ role: 'user', content: prompt }],
-    });
+  return callClaudeRaw({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: maxTokens,
+    messages:   [{ role: 'user', content: prompt }],
+  }).then(data => data.content?.find(b => b.type === 'text')?.text || '');
+}
 
+function callClaudeRaw(payloadObj) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(payloadObj);
     const req = https.request({
       hostname: 'api.anthropic.com',
       path:     '/v1/messages',
@@ -167,7 +170,10 @@ function callClaude(prompt, maxTokens = 1024) {
       res.on('end', () => {
         try {
           const data = JSON.parse(body);
-          resolve(data.content?.[0]?.text || '');
+          if (data.type === 'error') {
+            return reject(new Error(`Claude API: ${data.error?.message || body}`));
+          }
+          resolve(data);
         } catch { reject(new Error('Claude response parse error')); }
       });
     });
@@ -175,6 +181,39 @@ function callClaude(prompt, maxTokens = 1024) {
     req.write(payload);
     req.end();
   });
+}
+
+// Fetches the URL via Anthropic's server-side web_fetch tool (bypasses Lambda IP blocks)
+// and returns a parsed recipe object.
+async function parseWithClaudeWebFetch(url) {
+  const prompt = `Fetch the recipe from this URL: ${url}
+
+Extract the recipe and return ONLY a JSON object with this exact structure (no markdown, no explanation):
+{
+  "name": string,
+  "servings": number,
+  "prepTime": string (e.g. "15m"),
+  "cookTime": string (e.g. "30m"),
+  "photo": string (image URL) or null,
+  "tags": string[],
+  "ingredients": [{ "quantity": string, "unit": string, "name": string, "preparation": string, "packageSize": string }],
+  "directions": string[]
+}`;
+
+  const data = await callClaudeRaw({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 4096,
+    tools:      [{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 2 }],
+    messages:   [{ role: 'user', content: prompt }],
+  });
+
+  console.log('[import] web_fetch stop_reason:', data.stop_reason, 'block types:',
+    (data.content || []).map(b => b.type));
+
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('web_fetch: Claude did not return JSON. Raw text: ' + text.slice(0, 300));
+  return JSON.parse(jsonMatch[0]);
 }
 
 function extractSchemaRecipe(html) {
@@ -426,42 +465,35 @@ async function handleImport(event) {
   if (!url) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing url' }) };
 
   try {
-    const html   = await httpsGet(url);
-    const schema = extractSchemaRecipe(html);
-    console.log('[import]', JSON.stringify({
-      url,
-      htmlLen: html.length,
-      htmlHead: html.slice(0, 300),
-      branch: schema ? 'schema' : 'claude',
-      schemaName: schema?.name,
-      schemaIngredients: schema?.recipeIngredient?.length,
-      schemaInstructions: schema?.recipeInstructions?.length,
-    }));
-
     let recipe;
-    if (schema) {
-      recipe = parseSchemaRecipe(schema);
-      recipe.source = url;
-    } else {
-      const text = stripHtml(html);
-      recipe = await parseWithClaude(text, url);
-      recipe.source = url;
-      // Normalize ingredients and directions
-      recipe.ingredients = (recipe.ingredients || []).map(ing => ({
-        id: crypto.randomUUID(),
-        quantity: ing.quantity || '',
-        unit: ing.unit || '',
-        name: ing.name || '',
-        preparation: ing.preparation || '',
-        packageSize: ing.packageSize || '',
-        calories: null, protein: null, fat: null, carbs: null,
+    try {
+      const html   = await httpsGet(url);
+      const schema = extractSchemaRecipe(html);
+      console.log('[import]', JSON.stringify({
+        url,
+        htmlLen: html.length,
+        htmlHead: html.slice(0, 300),
+        branch: schema ? 'schema' : 'claude-html',
+        schemaName: schema?.name,
+        schemaIngredients: schema?.recipeIngredient?.length,
+        schemaInstructions: schema?.recipeInstructions?.length,
       }));
-      recipe.directions = (recipe.directions || []).map(d => {
-        const text = typeof d === 'string' ? d : (d.text || '');
-        return stepFromText(text);
-      }).filter(d => d.text);
+
+      if (schema) {
+        recipe = parseSchemaRecipe(schema);
+      } else {
+        recipe = await parseWithClaude(stripHtml(html), url);
+        normalizeClaudeRecipe(recipe);
+      }
+    } catch (fetchErr) {
+      // Lambda fetch was blocked (likely WAF/IP rep) — fall back to Claude's
+      // server-side web_fetch tool. Anthropic fetches the URL from their infra.
+      console.log('[import] httpsGet failed, falling back to web_fetch:', fetchErr.message);
+      recipe = await parseWithClaudeWebFetch(url);
+      normalizeClaudeRecipe(recipe);
     }
 
+    recipe.source     = url;
     recipe.directions = await splitStepsWithClaude(recipe.directions);
     recipe.id         = crypto.randomUUID();
     recipe.createdAt  = Date.now();
@@ -471,6 +503,22 @@ async function handleImport(event) {
   } catch (err) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: err.message }) };
   }
+}
+
+function normalizeClaudeRecipe(recipe) {
+  recipe.ingredients = (recipe.ingredients || []).map(ing => ({
+    id: crypto.randomUUID(),
+    quantity: ing.quantity || '',
+    unit: ing.unit || '',
+    name: ing.name || '',
+    preparation: ing.preparation || '',
+    packageSize: ing.packageSize || '',
+    calories: null, protein: null, fat: null, carbs: null,
+  }));
+  recipe.directions = (recipe.directions || []).map(d => {
+    const text = typeof d === 'string' ? d : (d.text || '');
+    return stepFromText(text);
+  }).filter(d => d.text);
 }
 
 async function handleCookSession(event) {
