@@ -203,7 +203,7 @@ Extract the recipe and return ONLY a JSON object with this exact structure (no m
   const data = await callClaudeRaw({
     model:      'claude-haiku-4-5-20251001',
     max_tokens: 4096,
-    tools:      [{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 2 }],
+    tools:      [{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 2, allowed_callers: ['direct'] }],
     messages:   [{ role: 'user', content: prompt }],
   });
 
