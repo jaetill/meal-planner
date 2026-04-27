@@ -501,7 +501,12 @@ async function handleImport(event) {
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ recipe }) };
   } catch (err) {
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: err.message }) };
+    console.error('[import] failed:', err.message);
+    const blocked = /HTTP 4\d\d|did not return JSON|domain restricts|robots\.txt/i.test(err.message);
+    const userMsg = blocked
+      ? 'This site blocks automated imports. Copy the recipe manually, or try a different source.'
+      : 'Could not import this recipe. Please try again.';
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: userMsg }) };
   }
 }
 
