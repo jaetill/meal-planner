@@ -10,7 +10,7 @@ Hosted at **https://meals.jaetill.com**.
   and `callback.html` (OAuth redirect target). Auth via Cognito Hosted UI
   (OAuth Authorization Code + PKCE), hand-rolled in `src/js/auth.js` — no
   `aws-amplify` dependency.
-- **Backend**: API Gateway REST API → Lambda (Node.js 20). No shared runtime
+- **Backend**: API Gateway REST API → Lambda (Node.js 22). No shared runtime
   dependencies — Lambdas use only AWS SDK and Node built-ins.
 - **Storage**: S3 bucket `jaetill-meal-planner` (private, served via CloudFront).
 - **Auth**: Cognito user pool `us-east-2_xneeJzaDJ`, web client

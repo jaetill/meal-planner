@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci --legacy-peer-deps
       - run: npm run build
@@ -23,6 +23,21 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-2
+      - name: Ensure Lambda runtimes are nodejs22.x
+        run: |
+          for fn in MealPlannerSave meal-planner-alexa meal-planner-groups meal-planner-nutrition meal-planner-kroger meal-planner-share meal-planner-plan; do
+            current=$(aws lambda get-function-configuration --function-name "$fn" --region us-east-2 --query 'Runtime' --output text)
+            if [ "$current" != "nodejs22.x" ]; then
+              echo "Updating $fn from $current to nodejs22.x"
+              aws lambda update-function-configuration \
+                --function-name "$fn" \
+                --runtime nodejs22.x \
+                --region us-east-2 >/dev/null
+              aws lambda wait function-updated --function-name "$fn" --region us-east-2
+            else
+              echo "$fn already on nodejs22.x"
+            fi
+          done
       - name: Sync HTML to S3 (no-cache)
         run: |
           aws s3 sync dist/ s3://jaetill-meal-planner/ \
@@ -66,25 +81,4 @@ jobs:
           aws lambda update-function-code \
             --function-name meal-planner-nutrition \
             --zip-file fileb://lambda/nutrition.zip \
-            --region us-east-2
-      - name: Deploy kroger Lambda
-        run: |
-          zip -j lambda/kroger.zip lambda/kroger.js
-          aws lambda update-function-code \
-            --function-name meal-planner-kroger \
-            --zip-file fileb://lambda/kroger.zip \
-            --region us-east-2
-      - name: Deploy share Lambda
-        run: |
-          zip -j lambda/share.zip lambda/share.js
-          aws lambda update-function-code \
-            --function-name meal-planner-share \
-            --zip-file fileb://lambda/share.zip \
-            --region us-east-2
-      - name: Deploy plan Lambda
-        run: |
-          zip -j lambda/plan.zip lambda/plan.js
-          aws lambda update-function-code \
-            --function-name meal-planner-plan \
-            --zip-file fileb://lambda/plan.zip \
-            --region us-east-2
+            
