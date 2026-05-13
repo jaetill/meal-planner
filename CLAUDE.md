@@ -145,3 +145,34 @@ ui/toast.js                â€” toast notifications
   seconds, parsed from text). Some imported recipes have HTML entities in step text
   â€” `save.js` decodes these when writing cook sessions
 - `ALEXA_USERNAME` must exactly match the Cognito username (`jaetill`)
+
+---
+
+## Platform inheritance
+
+This project adopts the Agentic Dev Environment platform (initial PR 2026-05-13). Standards live in `docs/standards/`, ADRs in `docs/adr/`. Project-specific deviations are in [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md).
+
+### AI configuration
+
+- 14 specialist subagents at `.claude/agents/` (architect, code-reviewer, dep-watcher, doc-keeper, drift-detector, e2e-tester, functional-tester, iac-implementer, implementer, incident-responder, release-captain, security-reviewer, test-writer, triage-bot)
+- 10 platform slash commands at `.claude/commands/`
+- Mixed-strictness hook policy at `.claude/settings.json` + `.claude/hooks/`
+- Pre-existing project hooks preserved: `check-comments.sh`, `check-secrets.sh`, `protect-files.sh`
+
+### Quality gates
+
+- ESLint (pragmatic-strict), Prettier, vitest with tiered coverage, husky pre-commit + commit-msg, lint-staged, commitlint (Conventional Commits)
+- `package.json` scripts: `test`, `lint`, `lint:fix`, `format`, `format:check`, `prepare`
+
+### CI workflows (under `.github/workflows/`)
+
+- `claude-pr-review.yml` — code-review + security-review + functional-test + e2e-test + test-writer + doc-keeper agents on every PR
+- `claude-dep-watcher.yml`, `claude-release-captain.yml`, `claude-triage-bot.yml`, `claude-incident-responder.yml`
+- `security-scan.yml` — gitleaks + npm-audit
+- `release.yml` — release-please
+- `docs.yml` — mkdocs deployment
+- Existing `deploy.yml` preserved; **not modified by this adoption** (S3+CloudFront pattern intact)
+
+### Status
+
+See [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md) for full status. Active gaps: Phase 4 secrets, Phase 5 frontend wiring (index.html + DSN), Phase 6 IaC, Phase 7 feedback Lambda.
