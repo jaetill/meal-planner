@@ -208,7 +208,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npm ci --prefix lambda
       - name: Run functional-tester agent
         uses: anthropics/claude-code-action@v1
@@ -271,7 +271,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npm ci --prefix lambda
       - name: Run test-writer agent
         uses: anthropics/claude-code-action@v1
@@ -358,7 +358,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       - name: Install Playwright browser + system deps
         run: npx playwright install --with-deps chromium
       - name: Run e2e suite (captures output for agent)
