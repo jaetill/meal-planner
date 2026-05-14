@@ -1,0 +1,39 @@
+# Gitleaks config — extends the default ruleset with a focused allowlist
+# for known false positives. Real findings continue to fail the workflow.
+#
+# Reviewed 2026-05-10 during the CI sweep. Each entry below is intentional;
+# add new entries with a brief justification.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Acknowledged false positives reviewed 2026-05-10"
+
+# Files that legitimately contain key-shaped content for testing/documentation.
+paths = [
+  # Files that were removed from the working tree but remain in git history.
+  # Contained AWS-access-key-IDs embedded in S3 presigned URLs generated
+  # during early prototyping (June 2025). The presigned URLs have long since
+  # expired; access key IDs are identifiers (not secrets) — the signing key
+  # was never in the URL.
+  '''^testPostUpload\.html$''',
+  '''^s3-upload-test\.html$''',
+  # Legacy root-level app.js, replaced by src/js/app.js during the modular
+  # restructure (commits 18f65c2..0af1590, 2025). Last contained the same
+  # presigned-URL test fixture before being deleted. Not in the working tree.
+  '''^app\.js$''',
+]
+
+# Patterns that match deliberate test/example values, not real credentials.
+regexes = [
+  # Test JWT used in tests/logger.test.js:74 to verify the structured
+  # logger's JWT-pattern redactor catches embedded JWTs in error strings.
+  # The token decodes to {alg:HS256,typ:JWT}.{sub:"123"} — toy payload.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjMifQ\.[A-Za-z0-9_-]+''',
+
+  # Placeholder API keys in API_KEY_SETUP.md and DEPLOYMENT_CHECKLIST.md.
+  # The trailing `...` ellipsis indicates truncation — these are example
+  # outputs from the SSM key-creation flow, not real keys.
+  '''3f8a9c2b1d4e\.\.\.''',
+]

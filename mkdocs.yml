@@ -1,0 +1,69 @@
+site_name: meal-planner
+site_url: https://jaetill.github.io/meal-planner/
+repo_url: https://github.com/jaetill/meal-planner
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.tabs
+    - navigation.sections
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight: { anchor_linenums: true }
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed: { alternate_style: true }
+  - tables
+  - toc: { permalink: true, toc_depth: 3 }
+
+nav:
+  - Home: index.md
+  - Architecture: architecture/overview.md
+  - ADRs:
+      - adr/index.md
+      - 'ADR-0001 — Platform adoption': adr/0001-platform-adoption.md
+  - Runbooks:
+      - runbooks/index.md
+      - Deploy: runbooks/deploy.md
+      - Rollback: runbooks/rollback.md
+      - Incident response: runbooks/incident-response.md
+      - Secret leak: runbooks/secret-leak.md
+      - IaC recovery: runbooks/iac-recover.md
+  - Audits:
+      - 'IAM Audit (2026-04-12)': iam-audit.md
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jaetill/meal-planner
