@@ -207,9 +207,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install dependencies
-        run: |
-          npm ci --legacy-peer-deps
-          npm ci --prefix lambda
+        run: npm ci --legacy-peer-deps
       - name: Run functional-tester agent
         uses: anthropics/claude-code-action@v1
         with:
@@ -270,9 +268,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install dependencies
-        run: |
-          npm ci --legacy-peer-deps
-          npm ci --prefix lambda
+        run: npm ci --legacy-peer-deps
       - name: Run test-writer agent
         uses: anthropics/claude-code-action@v1
         with:
