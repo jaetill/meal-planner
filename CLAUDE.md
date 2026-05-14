@@ -166,12 +166,12 @@ This project adopts the Agentic Dev Environment platform (initial PR 2026-05-13)
 
 ### CI workflows (under `.github/workflows/`)
 
-- `claude-pr-review.yml` — code-review + security-review + functional-test + e2e-test + test-writer + doc-keeper agents on every PR
+- `claude-pr-review.yml` ï¿½ code-review + security-review + functional-test + e2e-test + test-writer + doc-keeper agents on every PR
 - `claude-dep-watcher.yml`, `claude-release-captain.yml`, `claude-triage-bot.yml`, `claude-incident-responder.yml`
-- `security-scan.yml` — gitleaks + npm-audit
-- `release.yml` — release-please
-- `docs.yml` — mkdocs deployment
-- Existing `deploy.yml` preserved; **not modified by this adoption** (S3+CloudFront pattern intact)
+- `security-scan.yml` ï¿½ gitleaks + npm-audit
+- `release.yml` ï¿½ release-please
+- `docs.yml` ï¿½ mkdocs deployment
+- Existing `deploy.yml` preserved by the platform adoption; extended in PR #2 to wire up missing Lambda deployments (kroger, share, plan) â€” S3+CloudFront pattern intact
 
 ### Status
 
