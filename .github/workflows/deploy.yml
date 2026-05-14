@@ -81,4 +81,25 @@ jobs:
           aws lambda update-function-code \
             --function-name meal-planner-nutrition \
             --zip-file fileb://lambda/nutrition.zip \
-            
+            --region us-east-2
+      - name: Deploy kroger Lambda
+        run: |
+          zip -j lambda/kroger.zip lambda/kroger.js
+          aws lambda update-function-code \
+            --function-name meal-planner-kroger \
+            --zip-file fileb://lambda/kroger.zip \
+            --region us-east-2
+      - name: Deploy share Lambda
+        run: |
+          zip -j lambda/share.zip lambda/share.js
+          aws lambda update-function-code \
+            --function-name meal-planner-share \
+            --zip-file fileb://lambda/share.zip \
+            --region us-east-2
+      - name: Deploy plan Lambda
+        run: |
+          zip -j lambda/plan.zip lambda/plan.js
+          aws lambda update-function-code \
+            --function-name meal-planner-plan \
+            --zip-file fileb://lambda/plan.zip \
+            --region us-east-2

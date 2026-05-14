@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Hook policy per Standard 10 / ADR-0011. Platform hooks live in .claude/hooks/ (block-*, auto-format, lint-warn, etc.). Project hooks (protect-files, check-secrets, check-comments) are meal-planner-specific additions that predate the platform — kept because they cover gaps the platform hooks don't (package-lock.json protection, meal-planner-specific secret patterns, Lambda header conventions).",
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-destructive-bash.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-credential-exposure.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-secrets.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-protected-paths.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/confirm-pii-edits.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/protect-files.sh"
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/auto-format.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/lint-warn.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-comments.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/audit-bash.sh"
+          }
+        ]
+      }
+    ],
+
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-context.sh"
+          }
+        ]
+      }
+    ],
+
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-session-context.sh"
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-clean-stop.sh"
+          }
+        ]
+      }
+    ]
+  },
+
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(sudo rm*)",
+      "Bash(git push --force*)",
+      "Bash(*DROP TABLE*)",
+      "Bash(*TRUNCATE*)",
+      "Edit(*.tfstate*)",
+      "Edit(.env)",
+      "Write(*.tfstate*)",
+      "Write(.env)"
+    ]
+  }
+}
