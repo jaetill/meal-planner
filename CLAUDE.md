@@ -154,10 +154,7 @@ This project adopts the Agentic Dev Environment platform (initial PR 2026-05-13)
 
 ### AI configuration
 
-- 14 specialist subagents at `.claude/agents/` (architect, code-reviewer, dep-watcher, doc-keeper, drift-detector, e2e-tester, functional-tester, iac-implementer, implementer, incident-responder, release-captain, security-reviewer, test-writer, triage-bot)
-- 10 platform slash commands at `.claude/commands/`
-- Mixed-strictness hook policy at `.claude/settings.json` + `.claude/hooks/`
-- Pre-existing project hooks preserved: `check-comments.sh`, `check-secrets.sh`, `protect-files.sh`
+The platform's subagents, slash commands, and platform hooks are delivered via the `ai-team` plugin subscription (per workspace ADR-0015). `.claude/settings.json` retains only the plugin subscription (`enabledPlugins`), the permissions block, and the project-specific hooks that predate the platform (`check-comments.sh`, `check-secrets.sh`, `protect-files.sh`) which cover gaps the platform hooks don't.
 
 ### Quality gates
 
