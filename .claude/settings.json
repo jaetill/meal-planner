@@ -1,20 +1,25 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Hook policy per Standard 10 / ADR-0011. Platform hooks live in .claude/hooks/ (block-*, auto-format, lint-warn, etc.). Project hooks (protect-files, check-secrets, check-comments) are meal-planner-specific additions that predate the platform — kept because they cover gaps the platform hooks don't (package-lock.json protection, meal-planner-specific secret patterns, Lambda header conventions).",
+  "_comment": "Project now subscribes to the agentic-dev-environment plugin (per workspace ADR-0015). The plugin ships the canonical hook scripts, subagent definitions, and slash commands. This file carries: (1) the marketplace subscription, (2) the permissions block (plugin spec cannot ship permissions), (3) the project-specific hooks that predate the platform (check-comments, check-secrets, protect-files) and cover gaps the platform hooks don't. When the workspace is published to GitHub, swap the directory source for {\"source\": \"github\", \"repo\": \"jaetill/agentic-dev-environment\"}.",
+
+  "extraKnownMarketplaces": {
+    "agentic-dev-environment": {
+      "source": {
+        "source": "directory",
+        "path": "E:\\Users\\tille\\Documents\\Claude\\Projects\\Agentic Dev Environment"
+      }
+    }
+  },
+
+  "enabledPlugins": {
+    "agentic-dev-environment@agentic-dev-environment": true
+  },
 
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/block-destructive-bash.sh"
-          },
-          {
-            "type": "command",
-            "command": ".claude/hooks/block-credential-exposure.sh"
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/check-secrets.sh"
@@ -24,14 +29,6 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/block-protected-paths.sh"
-          },
-          {
-            "type": "command",
-            "command": ".claude/hooks/confirm-pii-edits.sh"
-          },
           {
             "type": "command",
             "command": "bash .claude/hooks/protect-files.sh"
@@ -46,57 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/auto-format.sh"
-          },
-          {
-            "type": "command",
-            "command": ".claude/hooks/lint-warn.sh"
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/check-comments.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/audit-bash.sh"
-          }
-        ]
-      }
-    ],
-
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/inject-context.sh"
-          }
-        ]
-      }
-    ],
-
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/inject-session-context.sh"
-          }
-        ]
-      }
-    ],
-
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-clean-stop.sh"
           }
         ]
       }
