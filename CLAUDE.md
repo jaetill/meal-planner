@@ -164,6 +164,8 @@ The platform's subagents, slash commands, and platform hooks are delivered via t
 ### CI workflows (under `.github/workflows/`)
 
 - `claude-pr-review.yml` � code-review + security-review + functional-test + e2e-test + test-writer + doc-keeper agents on every PR
+- `claude-implementer.yml` — implementer agent: Mode A (initial impl on `ready-for-implementer`/`sentry` labels) + Mode B (fix iteration on VERDICT: BLOCK comments) + IaC path; per ADR-0013
+- `auto-label-sentry-issues.yml` — auto-applies `sentry` label to issues opened by `sentry[bot]` to trigger the implementer (per ADR-0016 finding lifecycle)
 - `claude-dep-watcher.yml`, `claude-release-captain.yml`, `claude-triage-bot.yml`, `claude-incident-responder.yml`
 - `security-scan.yml` � gitleaks + npm-audit
 - `release.yml` � release-please
