@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Project now subscribes to the ai-team plugin (per workspace ADR-0015). The plugin ships the canonical hook scripts, subagent definitions, and slash commands. This file carries: (1) the marketplace subscription, (2) the permissions block (plugin spec cannot ship permissions), (3) the project-specific hooks that predate the platform (check-comments, check-secrets, protect-files) and cover gaps the platform hooks don't. When the workspace is published to GitHub, swap the directory source for {\"source\": \"github\", \"repo\": \"jaetill/agentic-dev-environment\"}.",
+  "_comment": "Project now subscribes to the ai-team plugin (per workspace ADR-0015). The plugin ships the canonical hook scripts, subagent definitions, and slash commands. This file carries: (1) the marketplace subscription, (2) the permissions block (plugin spec cannot ship permissions), (3) the project-specific hooks that predate the platform (check-comments, check-secrets, protect-files) and cover gaps the platform hooks don't.",
 
   "extraKnownMarketplaces": {
     "agentic-dev-environment": {
