@@ -3,6 +3,8 @@
 // Env vars: FROM_EMAIL (default: jason@jaetill.com)
 // API Gateway must have a Cognito authorizer so claims are present.
 
+const { Sentry } = require('./lib/sentry');
+
 const https = require('https');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
@@ -71,7 +73,7 @@ function buildTextBody(recipe) {
     lines.push('Ingredients:');
     recipe.ingredients.forEach(ing => {
       const ingName = ing.preparation ? `${ing.name}, ${ing.preparation}` : ing.name;
-      lines.push('  • ' + [ing.quantity, ing.unit, ingName].filter(Boolean).join(' '));
+      lines.push('  â€¢ ' + [ing.quantity, ing.unit, ingName].filter(Boolean).join(' '));
     });
     lines.push('');
   }
@@ -114,7 +116,7 @@ function postmark(msg) {
   });
 }
 
-// Group authz — caller must be in meal-planner-users
+// Group authz â€” caller must be in meal-planner-users
 function requireGroup(event, group) {
   const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
   const groups = Array.isArray(claim)
@@ -123,7 +125,7 @@ function requireGroup(event, group) {
   return groups.includes(group);
 }
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   const headers = corsHeaders(event);
 
   if (event.httpMethod === 'OPTIONS') {
@@ -175,4 +177,4 @@ exports.handler = async (event) => {
   });
 
   return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-};
+});

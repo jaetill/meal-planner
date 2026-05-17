@@ -10,8 +10,8 @@ Hosted at **https://meals.jaetill.com**.
   and `callback.html` (OAuth redirect target). Auth via Cognito Hosted UI
   (OAuth Authorization Code + PKCE), hand-rolled in `src/js/auth.js` — no
   `aws-amplify` dependency.
-- **Backend**: API Gateway REST API → Lambda (Node.js 22). No shared runtime
-  dependencies — Lambdas use only AWS SDK and Node built-ins.
+- **Backend**: API Gateway REST API → Lambda (Node.js 22). Lambdas bundle
+  `@sentry/aws-serverless` (shared via `lambda/lib/`) plus AWS SDK and Node built-ins.
 - **Storage**: S3 bucket `jaetill-meal-planner` (private, served via CloudFront).
 - **Auth**: Cognito user pool `us-east-2_xneeJzaDJ`, web client
   `2g8kng7thvouq1ami8cm336gbb`, managed-login branding `fc0030b0-27fe-4c33-b492-e165435e73cf`.
@@ -50,7 +50,13 @@ All POST routes require the Cognito authorizer. Claims available in Lambda as
 | POST /plan | meal-planner-plan | Cognito | AI-assisted meal plan generation and refinement |
 
 ## Lambda files (`lambda/`)
-Each file is zipped and deployed independently by `deploy.yml`.
+Each file is bundled with `lambda/lib/` and `lambda/node_modules/` into a zip by
+`deploy.yml` (no longer bare single-file zips). All handlers wrap via
+`Sentry.wrapHandler()` from `lib/sentry.js`.
+
+**Shared library (`lambda/lib/`):**
+- `lib/sentry.js` — Sentry init with PII scrubbing (`beforeSend`/`beforeBreadcrumb`); all handlers call `Sentry.wrapHandler()`
+- `lib/logger.js` — structured JSON logger (CloudWatch-native); field-level PII redaction + email/JWT regex scrubbing
 
 | File | Function name | Secrets / env vars |
 |---|---|---|
@@ -61,6 +67,10 @@ Each file is zipped and deployed independently by `deploy.yml`.
 | `alexa.js` | `meal-planner-alexa` | env: `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
 | `share.js` | `meal-planner-share` | SM: `meal-planner/secrets` (`POSTMARK_API_KEY`); env: `FROM_EMAIL` |
 | `plan.js` | `meal-planner-plan` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
+
+**Shared Sentry env vars (all Lambdas):** `SENTRY_DSN`, `DEPLOY_ENV`, `RELEASE_VERSION`,
+`LOG_LEVEL` — set out-of-band via `aws lambda update-function-configuration`. When
+`SENTRY_DSN` is unset, Sentry init is a no-op (safe for initial onboarding).
 
 **Secrets Manager:** All API keys are in `meal-planner/secrets` (us-east-2).
 Secrets are cached in Lambda module scope — fetched once per cold start (~50-100ms),
@@ -172,4 +182,4 @@ The platform's subagents, slash commands, and platform hooks are delivered via t
 
 ### Status
 
-See [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md) for full status. Active gaps: Phase 4 secrets, Phase 5 frontend wiring (index.html + DSN), Phase 6 IaC, Phase 7 feedback Lambda.
+See [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md) for full status. Active gaps: Phase 4 secrets, Phase 5 frontend wiring (index.html DSN init — Lambda observability closed by ADR-0014), Phase 6 IaC, Phase 7 feedback Lambda.

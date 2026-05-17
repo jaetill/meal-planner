@@ -1,17 +1,19 @@
-// Lambda: meal-planner-groups — all group management and cross-account recipe sharing
-//   GET  /groups                        — list groups for the calling user
-//   POST /groups { action: 'create' }   — create a new group
-//   POST /groups { action: 'invite' }   — generate an invite code
-//   POST /groups { action: 'join' }     — join via invite code
-//   POST /groups { action: 'share' }    — send a recipe to another user's incoming/
-//   POST /groups { action: 'acceptShare' } — copy incoming share into a group
-//   POST /groups { action: 'dismissShare' } — remove incoming share
-//   GET  /groups?action=members         — list members of a group
-//   GET  /groups?action=incoming        — list incoming recipe shares for the user
+// Lambda: meal-planner-groups â€” all group management and cross-account recipe sharing
+//   GET  /groups                        â€” list groups for the calling user
+//   POST /groups { action: 'create' }   â€” create a new group
+//   POST /groups { action: 'invite' }   â€” generate an invite code
+//   POST /groups { action: 'join' }     â€” join via invite code
+//   POST /groups { action: 'share' }    â€” send a recipe to another user's incoming/
+//   POST /groups { action: 'acceptShare' } â€” copy incoming share into a group
+//   POST /groups { action: 'dismissShare' } â€” remove incoming share
+//   GET  /groups?action=members         â€” list members of a group
+//   GET  /groups?action=incoming        â€” list incoming recipe shares for the user
 //
 // S3 layout: groups/{groupId}/info.json, users/{userId}/groups.json,
 //            incoming/{userId}/index.json, codes/{code}.json
-// Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
+// Auth: Cognito authorizer â€” userId from event.requestContext.authorizer.claims['cognito:username']
+
+const { Sentry } = require('./lib/sentry');
 
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 
@@ -32,7 +34,7 @@ function corsHeaders(event) {
   return { ...CORS, 'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : CORS['Access-Control-Allow-Origin'] };
 }
 
-// ── S3 helpers ────────────────────────────────────────────
+// â”€â”€ S3 helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function s3Get(key) {
   try {
@@ -54,7 +56,7 @@ async function s3Put(key, data) {
   }));
 }
 
-// ── Group helpers ─────────────────────────────────────────
+// â”€â”€ Group helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getUserGroups(userId) {
   return (await s3Get(`users/${userId}/groups.json`)) || [];
@@ -76,9 +78,9 @@ function generateCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase(); // e.g. "K7M2XP"
 }
 
-// ── Route handlers ────────────────────────────────────────
+// â”€â”€ Route handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /groups — list the calling user's groups
+// GET /groups â€” list the calling user's groups
 async function handleList(userId) {
   const groups = await getUserGroups(userId);
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ groups }) };
@@ -141,7 +143,7 @@ async function handleJoin(userId, body) {
   const { code } = body;
   if (!code) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'code required' }) };
 
-  // Search all user groups for this code — but we don't have a code→group index.
+  // Search all user groups for this code â€” but we don't have a codeâ†’group index.
   // Store a code index at codes/{code}.json pointing to groupId.
   const codeData = await s3Get(`codes/${code}.json`);
   if (!codeData) return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'Invalid or expired invite code' }) };
@@ -257,9 +259,9 @@ async function handleDismissShare(userId, body) {
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ dismissed: shareId }) };
 }
 
-// ── Main handler ──────────────────────────────────────────
+// â”€â”€ Main handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Group authz — caller must be in meal-planner-users
+// Group authz â€” caller must be in meal-planner-users
 function requireGroup(event, group) {
   const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
   const groups = Array.isArray(claim)
@@ -268,7 +270,7 @@ function requireGroup(event, group) {
   return groups.includes(group);
 }
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   const CORS = corsHeaders(event);
 
   if (event.httpMethod === 'OPTIONS')
@@ -313,4 +315,4 @@ exports.handler = async (event) => {
     console.error(err);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: err.message }) };
   }
-};
+});
