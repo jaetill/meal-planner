@@ -1,19 +1,13 @@
-# Phase 6 import blocks — Terraform 1.5+ `import { ... }` syntax.
-# These replace the older `terraform import` CLI workflow.
+# Phase 6 Slice 1 import blocks — Terraform 1.5+ syntax.
+# Process: add import { ... }, run `tofu plan`, adjust config until zero diff,
+# `tofu apply`, then remove the import block.
 #
-# Process per slice:
-#   1. Add the `import` block alongside the resource definition.
-#   2. Run `tofu plan` — Terraform compares the existing AWS state to the
-#      resource config and shows the drift.
-#   3. Adjust the resource config until `tofu plan` shows zero diff
-#      (or only intentional changes you want to apply).
-#   4. Run `tofu apply` to commit the import to state.
-#   5. Remove the `import` block from this file once stable.
-#
-# Slice 1 (S3 + CloudFront) — ready to plan.
-# Slices 2-5 (Lambdas, IAM, API Gateway, secrets) — see README.md.
-
-# ── Slice 1: S3 + CloudFront ────────────────────────────────────────────
+# CloudFront imports are temporarily disabled below — the jaetill-dev IAM user
+# is missing `cloudfront:ListTagsForResource`, which Terraform requires when
+# importing aws_cloudfront_distribution. Fix:
+#   aws iam put-user-policy --user-name jaetill-dev --policy-name TerraformCloudFront `
+#     --policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"cloudfront:ListTagsForResource\",\"cloudfront:GetOriginAccessControl\",\"cloudfront:GetDistribution\",\"cloudfront:GetDistributionConfig\"],\"Resource\":\"*\"}]}'
+# Then uncomment the two CloudFront imports below and re-plan.
 
 import {
   to = aws_s3_bucket.main
@@ -35,12 +29,13 @@ import {
   id = "jaetill-meal-planner"
 }
 
-import {
-  to = aws_cloudfront_origin_access_control.main
-  id = "EKC2MRJ7AU5FD"
-}
-
-import {
-  to = aws_cloudfront_distribution.main
-  id = "E301SUJKLJO7A7"
-}
+# Pending IAM fix above:
+# import {
+#   to = aws_cloudfront_origin_access_control.main
+#   id = "EKC2MRJ7AU5FD"
+# }
+#
+# import {
+#   to = aws_cloudfront_distribution.main
+#   id = "E301SUJKLJO7A7"
+# }
