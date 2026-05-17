@@ -9,6 +9,8 @@
 
 'use strict';
 
+const { Sentry } = require('./lib/sentry');
+
 const https = require('https');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
@@ -28,7 +30,7 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-// USDA nutrient IDs → our field names
+// USDA nutrient IDs â†’ our field names
 const NUTRIENT_MAP = {
   1008: 'calories',
   1003: 'protein',
@@ -41,7 +43,7 @@ const NUTRIENT_MAP = {
   2000: 'sugar',
 };
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// â”€â”€ CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function corsHeaders(event) {
   const origin = event.headers?.origin || event.headers?.Origin || '';
@@ -52,9 +54,9 @@ function corsHeaders(event) {
   };
 }
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+// â”€â”€ Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   const CORS = corsHeaders(event);
 
   if (event.httpMethod === 'OPTIONS' || event.requestContext?.http?.method === 'OPTIONS') {
@@ -71,14 +73,14 @@ exports.handler = async (event) => {
     const usdaResult = await searchUSDA(name);
 
     if (usdaResult) {
-      // 2. Convert quantity to grams using unit table — no Claude needed
+      // 2. Convert quantity to grams using unit table â€” no Claude needed
       const grams = convertToGrams(parseFloat(quantity) || 1, unit, name);
       const scale = grams / 100;
       const nutrition = scaleNutrients(usdaResult, scale);
       return respond(200, { nutrition, source: 'usda' }, CORS);
     }
 
-    // 3. Claude fallback — only fires when USDA has no match
+    // 3. Claude fallback â€” only fires when USDA has no match
     const nutrition = await estimateNutritionClaude(quantity, unit, name);
     return respond(200, { nutrition, source: 'claude' }, CORS);
 
@@ -86,9 +88,9 @@ exports.handler = async (event) => {
     console.error(e);
     return respond(500, { error: e.message }, CORS);
   }
-};
+});
 
-// ── USDA search ───────────────────────────────────────────────────────────────
+// â”€â”€ USDA search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function searchUSDA(name) {
   const url = `/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=5&api_key=${_secrets.USDA_API_KEY}`;
@@ -99,13 +101,13 @@ async function searchUSDA(name) {
   const json  = JSON.parse(res.body);
   const foods = json.foods || [];
 
-  // Prefer "SR Legacy" or "Foundation" data types — most reliable nutrient data
+  // Prefer "SR Legacy" or "Foundation" data types â€” most reliable nutrient data
   const preferred = foods.find(f => f.dataType === 'SR Legacy' || f.dataType === 'Foundation')
     || foods[0];
 
   if (!preferred) return null;
 
-  // Reject weak matches — require at least half the query words to appear in the description
+  // Reject weak matches â€” require at least half the query words to appear in the description
   const queryWords  = name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
   const description = (preferred.description || '').toLowerCase();
   const matchCount  = queryWords.filter(w => description.includes(w)).length;
@@ -122,7 +124,7 @@ async function searchUSDA(name) {
   return nutrients.calories != null ? nutrients : null;
 }
 
-// ── Scale per-100g nutrients by weight ratio ──────────────────────────────────
+// â”€â”€ Scale per-100g nutrients by weight ratio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function scaleNutrients(per100g, scale) {
   const result = {};
@@ -132,7 +134,7 @@ function scaleNutrients(per100g, scale) {
   return result;
 }
 
-// ── Unit → grams conversion table (no Claude needed) ─────────────────────────
+// â”€â”€ Unit â†’ grams conversion table (no Claude needed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const UNIT_GRAMS = {
   // Weight
@@ -140,7 +142,7 @@ const UNIT_GRAMS = {
   kg: 1000, kilogram: 1000, kilograms: 1000,
   oz: 28.35, ounce: 28.35, ounces: 28.35,
   lb: 453.6, pound: 453.6, pounds: 453.6,
-  // Volume (approximate water density — good for liquids, rough for solids)
+  // Volume (approximate water density â€” good for liquids, rough for solids)
   ml: 1, milliliter: 1, milliliters: 1,
   l: 1000, liter: 1000, liters: 1000,
   tsp: 5, teaspoon: 5, teaspoons: 5,
@@ -163,11 +165,11 @@ function convertToGrams(qty, unit, _name) {
   const key = (unit || '').toLowerCase().trim();
   const gramsPerUnit = UNIT_GRAMS[key];
   if (gramsPerUnit) return qty * gramsPerUnit;
-  // Unknown unit — default to 100g (one serving equivalent)
+  // Unknown unit â€” default to 100g (one serving equivalent)
   return 100;
 }
 
-// ── Claude: estimate full nutrition for a quantity ────────────────────────────
+// â”€â”€ Claude: estimate full nutrition for a quantity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function estimateNutritionClaude(quantity, unit, name) {
   const prompt = `Estimate the nutrition for ${quantity || '1'} ${unit || ''} ${name}.
@@ -190,7 +192,7 @@ function emptyNutrition() {
            cholesterol: null, sodium: null, carbs: null, fiber: null, sugar: null };
 }
 
-// ── Claude API ────────────────────────────────────────────────────────────────
+// â”€â”€ Claude API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function callClaude(prompt) {
   const body = JSON.stringify({
@@ -216,7 +218,7 @@ async function callClaude(prompt) {
   return json.content?.[0]?.text || '';
 }
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// â”€â”€ HTTP helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -231,7 +233,7 @@ function httpsRequest(options, body) {
   });
 }
 
-// ── Respond helper ────────────────────────────────────────────────────────────
+// â”€â”€ Respond helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function respond(status, body, headers) {
   return { statusCode: status, headers, body: JSON.stringify(body) };

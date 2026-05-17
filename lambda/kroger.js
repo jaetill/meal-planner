@@ -1,9 +1,11 @@
-// Lambda: GET /locations?zip=<zip>          — find nearby Kroger/Harris Teeter stores
-//         GET /products?q=<term>&locationId=<id> — search products with prices
+// Lambda: GET /locations?zip=<zip>          â€” find nearby Kroger/Harris Teeter stores
+//         GET /products?q=<term>&locationId=<id> â€” search products with prices
 //
 // Secrets: KROGER_CLIENT_ID, KROGER_CLIENT_SECRET from AWS Secrets Manager (meal-planner/secrets)
 
 'use strict';
+
+const { Sentry } = require('./lib/sentry');
 
 const https = require('https');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
@@ -26,11 +28,11 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
 ]);
 
-// Cache token in module scope — reused across warm Lambda invocations
+// Cache token in module scope â€” reused across warm Lambda invocations
 let cachedToken     = null;
 let tokenExpiresAt  = 0;
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
+// â”€â”€ CORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function corsHeaders(event) {
   const origin = event.headers?.origin || event.headers?.Origin || '';
@@ -41,9 +43,9 @@ function corsHeaders(event) {
   };
 }
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+// â”€â”€ Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   const CORS = corsHeaders(event);
 
   if (event.httpMethod === 'OPTIONS' || event.requestContext?.http?.method === 'OPTIONS') {
@@ -80,9 +82,9 @@ exports.handler = async (event) => {
     console.error(e);
     return respond(500, { error: e.message }, CORS);
   }
-};
+});
 
-// ── Token (client credentials, cached) ───────────────────────────────────────
+// â”€â”€ Token (client credentials, cached) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getToken() {
   if (cachedToken && Date.now() < tokenExpiresAt - 60_000) return cachedToken;
@@ -111,7 +113,7 @@ async function getToken() {
   return cachedToken;
 }
 
-// ── Kroger API GET ─────────────────────────────────────────────────────────────
+// â”€â”€ Kroger API GET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function krogerGet(token, path) {
   const res = await httpsRequest({
@@ -128,7 +130,7 @@ async function krogerGet(token, path) {
   return JSON.parse(res.body);
 }
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// â”€â”€ HTTP helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -143,7 +145,7 @@ function httpsRequest(options, body) {
   });
 }
 
-// ── Respond helper ────────────────────────────────────────────────────────────
+// â”€â”€ Respond helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function respond(status, body, headers) {
   return { statusCode: status, headers, body: JSON.stringify(body) };

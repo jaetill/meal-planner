@@ -1,10 +1,12 @@
-// Lambda: MealPlannerSave — handles three routes via path detection
-//   POST /save   — write recipes.json, meal-plans.json, or staples.json for a group
-//   POST /import — fetch a URL, extract Schema.org recipe, fall back to Claude
-//   POST /cook   — read/write cook session at cook-sessions/{userId}.json
+// Lambda: MealPlannerSave â€” handles three routes via path detection
+//   POST /save   â€” write recipes.json, meal-plans.json, or staples.json for a group
+//   POST /import â€” fetch a URL, extract Schema.org recipe, fall back to Claude
+//   POST /cook   â€” read/write cook session at cook-sessions/{userId}.json
 //
-// Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
+// Auth: Cognito authorizer â€” userId from event.requestContext.authorizer.claims['cognito:username']
 // Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+
+const { Sentry } = require('./lib/sentry');
 
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
@@ -28,8 +30,8 @@ const s3           = new S3Client({ region: 'us-east-2' });
 
 const HTML_ENTITIES = {
   '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'",
-  '&nbsp;': ' ', '&frac12;': '½', '&frac14;': '¼', '&frac34;': '¾',
-  '&deg;': '°', '&mdash;': '—', '&ndash;': '–', '&hellip;': '…',
+  '&nbsp;': ' ', '&frac12;': 'Â½', '&frac14;': 'Â¼', '&frac34;': 'Â¾',
+  '&deg;': 'Â°', '&mdash;': 'â€”', '&ndash;': 'â€“', '&hellip;': 'â€¦',
   '&rsquo;': "'", '&lsquo;': "'", '&rdquo;': '"', '&ldquo;': '"',
 };
 function decodeHtml(str) {
@@ -47,16 +49,16 @@ const CORS = {
   'Content-Type': 'application/json',
 };
 
-// ── Helpers ───────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Returns { min, max? } in seconds, or null. max is only set for range expressions.
 function parseDurationFromText(text) {
   if (!text) return null;
-  const R = /(\d+)\s*(?:[-–]|to)\s*(\d+)\s*/i;
-  const rangeHourMin = text.match(new RegExp(R.source + /(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:[-–]|to)?\s*(\d+)?\s*(?:minute|min)s?/i.source, 'i'));
-  const rangeMin  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:minute|min)s?/i);
-  const rangeHour = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:hour|hr)s?/i);
-  const rangeSec  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:second|sec)s?/i);
+  const R = /(\d+)\s*(?:[-â€“]|to)\s*(\d+)\s*/i;
+  const rangeHourMin = text.match(new RegExp(R.source + /(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:[-â€“]|to)?\s*(\d+)?\s*(?:minute|min)s?/i.source, 'i'));
+  const rangeMin  = text.match(/(\d+)\s*(?:[-â€“]|to)\s*(\d+)\s*(?:minute|min)s?/i);
+  const rangeHour = text.match(/(\d+)\s*(?:[-â€“]|to)\s*(\d+)\s*(?:hour|hr)s?/i);
+  const rangeSec  = text.match(/(\d+)\s*(?:[-â€“]|to)\s*(\d+)\s*(?:second|sec)s?/i);
   if (rangeMin)  return { min: parseInt(rangeMin[1])  * 60,   max: parseInt(rangeMin[2])  * 60 };
   if (rangeHour) return { min: parseInt(rangeHour[1]) * 3600, max: parseInt(rangeHour[2]) * 3600 };
   if (rangeSec)  return { min: parseInt(rangeSec[1]),          max: parseInt(rangeSec[2]) };
@@ -287,7 +289,7 @@ const UNIT_NORMALIZE = {
 const UNITS_SORTED = [...UNITS].sort((a, b) => b.length - a.length);
 const UNITS_PATTERN = UNITS_SORTED.map(u => u.replace(/\s/g, '\\s')).join('|');
 const ING_REGEX = new RegExp(
-  `^([\\d½¼¾⅓⅔\\s\\/\\.]+)?\\s*(${UNITS_PATTERN})\\.?\\s+(.+)$`, 'i'
+  `^([\\dÂ½Â¼Â¾â…“â…”\\s\\/\\.]+)?\\s*(${UNITS_PATTERN})\\.?\\s+(.+)$`, 'i'
 );
 
 function parseIngredientLine(line) {
@@ -300,15 +302,15 @@ function parseIngredientLine(line) {
     unit     = UNIT_NORMALIZE[rawUnit.toLowerCase()] || rawUnit;
     rest     = match[3]?.trim() || '';
   } else {
-    // No unit — try to grab leading number as quantity
-    const numMatch = line.match(/^([\d½¼¾⅓⅔\/\.\s]+)\s+(.+)$/);
+    // No unit â€” try to grab leading number as quantity
+    const numMatch = line.match(/^([\dÂ½Â¼Â¾â…“â…”\/\.\s]+)\s+(.+)$/);
     if (numMatch) {
       quantity = numMatch[1].trim();
       rest     = numMatch[2].trim();
     }
   }
 
-  // Split preparation at comma: "onions, chopped" → name="onions", preparation="chopped"
+  // Split preparation at comma: "onions, chopped" â†’ name="onions", preparation="chopped"
   const commaIdx = rest.indexOf(',');
   let name = rest, preparation = '';
   if (commaIdx > 0) {
@@ -403,10 +405,10 @@ async function splitStepsWithClaude(directions) {
   const prompt = `Split these recipe directions into clean steps.
 
 Rules:
-- Split a step when it describes distinct sequential phases separated by time, temperature change, or technique (e.g. "Cook for 5 minutes, then add butter and cook for 3 more minutes" → two steps).
+- Split a step when it describes distinct sequential phases separated by time, temperature change, or technique (e.g. "Cook for 5 minutes, then add butter and cook for 3 more minutes" â†’ two steps).
 - Keep a step together when it lists multiple ingredients or items within a single action (e.g. "Add flour, sugar, salt, and baking powder to the bowl" stays as one step).
 - Keep a step together when it describes a single continuous action (e.g. "Stir occasionally and check for doneness" stays as one step).
-- Preserve original wording exactly — only split, never rewrite or summarize.
+- Preserve original wording exactly â€” only split, never rewrite or summarize.
 - Return ONLY a JSON array of strings, no explanation.
 
 Directions:
@@ -424,7 +426,7 @@ ${JSON.stringify(texts)}`;
   }
 }
 
-// ── Route handlers ────────────────────────────────────────
+// â”€â”€ Route handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function handleSave(event) {
   const userId = event.requestContext?.authorizer?.claims?.['cognito:username'];
@@ -486,7 +488,7 @@ async function handleImport(event) {
         normalizeClaudeRecipe(recipe);
       }
     } catch (fetchErr) {
-      // Lambda fetch was blocked (likely WAF/IP rep) — fall back to Claude's
+      // Lambda fetch was blocked (likely WAF/IP rep) â€” fall back to Claude's
       // server-side web_fetch tool. Anthropic fetches the URL from their infra.
       console.log('[import] httpsGet failed, falling back to web_fetch:', fetchErr.message);
       recipe = await parseWithClaudeWebFetch(url);
@@ -576,9 +578,9 @@ async function handleCookSession(event) {
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ session }) };
 }
 
-// ── Main handler ──────────────────────────────────────────
+// â”€â”€ Main handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Group authz — caller must be in meal-planner-users
+// Group authz â€” caller must be in meal-planner-users
 function requireGroup(event, group) {
   const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
   const groups = Array.isArray(claim)
@@ -587,7 +589,7 @@ function requireGroup(event, group) {
   return groups.includes(group);
 }
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: CORS, body: '' };
   }
@@ -602,4 +604,4 @@ exports.handler = async (event) => {
   if (path.endsWith('/import'))  return handleImport(event);
   if (path.endsWith('/cook'))    return handleCookSession(event);
   return handleSave(event);
-};
+});
