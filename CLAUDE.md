@@ -138,6 +138,7 @@ ui/toast.js                — toast notifications
 - Each Lambda zipped and deployed individually; adding a new Lambda requires
   both a deploy step in `deploy.yml` AND adding it to `meal-planner-github-deploy`
   role's inline `deploy` policy
+- **IaC**: AWS infrastructure managed as code in `terraform/envs/prod/` (OpenTofu ≥ 1.6). Applied manually on Jason's workstation after PR review — never from CI. See `terraform/README.md` for the slice-by-slice import workflow.
 
 ## Groups & multi-tenancy
 - Every user has one or more groups. All recipe/plan/staple data is group-scoped.
