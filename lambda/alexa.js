@@ -1,5 +1,5 @@
 /**
- * Alexa Skill Lambda — Meal Planner Cook Mode
+ * Alexa Skill Lambda â€” Meal Planner Cook Mode
  *
  * Setup instructions:
  * 1. Deploy this file as a Lambda function named "meal-planner-alexa"
@@ -36,13 +36,15 @@
  * }
  */
 
+const { Sentry } = require('./lib/sentry');
+
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const https = require('https');
 
 const BUCKET = 'jaetill-meal-planner';
 const s3     = new S3Client({ region: 'us-east-2' });
 
-// ── S3 helpers ────────────────────────────────────────────
+// â”€â”€ S3 helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function s3Get(key) {
   const res  = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
@@ -58,7 +60,7 @@ async function s3Put(key, data) {
   }));
 }
 
-// ── Duration helpers ──────────────────────────────────────
+// â”€â”€ Duration helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function formatDuration(seconds) {
   if (!seconds) return null;
@@ -79,7 +81,7 @@ function isoDuration(seconds) {
   return `PT${h ? `${h}H` : ''}${m ? `${m}M` : ''}${s ? `${s}S` : ''}`;
 }
 
-// ── Alexa Timer API ───────────────────────────────────────
+// â”€â”€ Alexa Timer API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function setAlexaTimer(apiEndpoint, apiAccessToken, durationSeconds, label) {
   return new Promise(resolve => {
@@ -111,7 +113,7 @@ function setAlexaTimer(apiEndpoint, apiAccessToken, durationSeconds, label) {
   });
 }
 
-// ── Response builder ──────────────────────────────────────
+// â”€â”€ Response builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function respond(text, endSession = false, repromptText = null) {
   return {
@@ -128,9 +130,9 @@ function respond(text, endSession = false, repromptText = null) {
 
 const REPROMPT = "Say \"what's next\" to advance, \"repeat\" to hear the step again, or \"help\" for options.";
 
-// ── Main handler ──────────────────────────────────────────
+// â”€â”€ Main handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-exports.handler = async (event) => {
+exports.handler = Sentry.wrapHandler(async (event) => {
   const username = process.env.ALEXA_USERNAME;
   if (!username) return respond('Meal planner is not configured. Please set the Alexa username in the Lambda environment.', true);
 
@@ -140,7 +142,7 @@ exports.handler = async (event) => {
   const apiAccessToken = event.context?.System?.apiAccessToken;
   const s3Key          = `cook-sessions/${username}.json`;
 
-  // ── Launch ─────────────────────────────────────────────
+  // â”€â”€ Launch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (requestType === 'LaunchRequest') {
     try {
       const session = await s3Get(s3Key);
@@ -161,7 +163,7 @@ exports.handler = async (event) => {
   if (requestType === 'SessionEndedRequest') return { version: '1.0', response: {} };
   if (requestType !== 'IntentRequest') return respond("Sorry, I didn't catch that.", false, REPROMPT);
 
-  // ── Load session (required for all intents) ────────────
+  // â”€â”€ Load session (required for all intents) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let session;
   try {
     session = await s3Get(s3Key);
@@ -174,7 +176,7 @@ exports.handler = async (event) => {
 
   const total = session.steps.length;
 
-  // ── Intents ────────────────────────────────────────────
+  // â”€â”€ Intents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (intentName === 'WhatsNextIntent') {
     if (session.stepIndex >= total - 1) {
       return respond(
@@ -252,4 +254,4 @@ exports.handler = async (event) => {
   }
 
   return respond("Sorry, I didn't understand that.", false, REPROMPT);
-};
+});

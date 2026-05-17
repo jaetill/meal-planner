@@ -11,14 +11,31 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # Sentry release env. SENTRY_AUTH_TOKEN gates the source-map / release
+      # creation step below: if the secret is absent the step is a no-op so the
+      # deploy still works during initial onboarding.
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for set-commits=auto
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci --legacy-peer-deps
+      - name: Install lambda dependencies
+        # Each Lambda zip bundles handler + lib/ + node_modules so @sentry/aws-serverless
+        # is available at runtime. No node_modules in the zip = no Sentry wrap.
+        run: npm ci --legacy-peer-deps --prefix lambda
       - run: npm run build
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_DEPLOY_ENV: production
+          VITE_RELEASE_VERSION: ${{ github.sha }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -54,52 +71,83 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id E301SUJKLJO7A7 \
             --paths "/index.html" "/login.html"
+
+      # Lambda deploys: each zip includes handler + lib/ + node_modules so the
+      # `require('./lib/sentry')` in each handler can resolve @sentry/aws-serverless.
+      # Using `pushd lambda` + `zip -r` keeps relative paths intact inside the zip.
       - name: Deploy save Lambda
         run: |
-          zip -j lambda/save.zip lambda/save.js
+          pushd lambda
+          zip -r ../save.zip save.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name MealPlannerSave \
-            --zip-file fileb://lambda/save.zip \
+            --zip-file fileb://save.zip \
             --region us-east-2
       - name: Deploy alexa Lambda
         run: |
-          zip -j lambda/alexa.zip lambda/alexa.js
+          pushd lambda
+          zip -r ../alexa.zip alexa.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-alexa \
-            --zip-file fileb://lambda/alexa.zip \
+            --zip-file fileb://alexa.zip \
             --region us-east-2
       - name: Deploy groups Lambda
         run: |
-          zip -j lambda/groups.zip lambda/groups.js
+          pushd lambda
+          zip -r ../groups.zip groups.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-groups \
-            --zip-file fileb://lambda/groups.zip \
+            --zip-file fileb://groups.zip \
             --region us-east-2
       - name: Deploy nutrition Lambda
         run: |
-          zip -j lambda/nutrition.zip lambda/nutrition.js
+          pushd lambda
+          zip -r ../nutrition.zip nutrition.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-nutrition \
-            --zip-file fileb://lambda/nutrition.zip \
+            --zip-file fileb://nutrition.zip \
             --region us-east-2
       - name: Deploy kroger Lambda
         run: |
-          zip -j lambda/kroger.zip lambda/kroger.js
+          pushd lambda
+          zip -r ../kroger.zip kroger.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-kroger \
-            --zip-file fileb://lambda/kroger.zip \
+            --zip-file fileb://kroger.zip \
             --region us-east-2
       - name: Deploy share Lambda
         run: |
-          zip -j lambda/share.zip lambda/share.js
+          pushd lambda
+          zip -r ../share.zip share.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-share \
-            --zip-file fileb://lambda/share.zip \
+            --zip-file fileb://share.zip \
             --region us-east-2
       - name: Deploy plan Lambda
         run: |
-          zip -j lambda/plan.zip lambda/plan.js
+          pushd lambda
+          zip -r ../plan.zip plan.js lib node_modules
+          popd
           aws lambda update-function-code \
             --function-name meal-planner-plan \
-            --zip-file fileb://lambda/plan.zip \
+            --zip-file fileb://plan.zip \
             --region us-east-2
+
+      # Sentry release: tag this commit as a release and associate commits since
+      # the previous release. Frontend events match by VITE_RELEASE_VERSION =
+      # github.sha set at build time above. Lambda events match by their
+      # RELEASE_VERSION env var (set out-of-band via aws lambda update-function-configuration).
+      - name: Create Sentry release
+        if: env.SENTRY_AUTH_TOKEN != ''
+        uses: getsentry/action-release@v1
+        with:
+          version: ${{ github.sha }}
+          environment: production
+          set_commits: auto
+          finalize: true
