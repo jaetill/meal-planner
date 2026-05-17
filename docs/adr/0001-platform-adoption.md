@@ -1,4 +1,4 @@
-# ADR-0001: Platform adoption — meal-planner
+# ADR-0001: Platform adoption â€” meal-planner
 
 - **Status:** Accepted
 - **Date:** 2026-05-13
@@ -18,7 +18,7 @@ Adopt all 11 platform standards. The following deltas apply:
 - **Default branch:** `master` (not platform-default `main`)
 - **Frontend deploy:** S3 + CloudFront (`E301SUJKLJO7A7`) (not GitHub Pages, not Vercel)
 - **Backend language:** Node.js CommonJS (not platform-default Python)
-- **Lambda packaging:** bare zip per function (no `node_modules` bundled) — adopting Sentry server-side wrapping would require switching to bundled zips per function. Deferred.
+- **Lambda packaging:** bare zip per function (no `node_modules` bundled) â€” adopting Sentry server-side wrapping would require switching to bundled zips per function. Deferred.
 - **AWS region:** `us-east-2`
 - **Email:** N/A (no transactional email at this time)
 - **Auth:** shared Cognito user pool `us-east-2_xneeJzaDJ` (shared with game-night-pwa + jaetill-portal); Cognito-native authorizer (not custom dual-mode)
@@ -29,21 +29,21 @@ Adopt all 11 platform standards. The following deltas apply:
 
 ## Implementation status (initial PR, 2026-05-13)
 
-- ? Phase 1 — Documentation: standards + ADR template + runbooks copied
-- ? Phase 2 — AI configuration: 14 agents + 10 commands + 10 platform hooks added (project hooks preserved)
-- ? Phase 3 — Quality gates: ESLint, Prettier, vitest, husky, commitlint, lint-staged configured; smoke test added
-- ?? Phase 4 — CI workflows: workflow files copied; **needs secrets configured by Jason** (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `VITE_SENTRY_DSN`)
-- ?? Phase 5 — Observability (frontend): `src/js/sentry.js` copied; **needs Jason to wire it into `index.html` + `callback.html` as the FIRST script**, AND create the Sentry project + DSN secret
-- ? Phase 5 — Observability (Lambdas): deferred per PORT_PLAN
-- ? Phase 6 — IaC retrofit: deferred (4+ hours, own session)
-- ? Phase 7 — User feedback Lambda: deferred per PORT_PLAN
+- ? Phase 1 â€” Documentation: standards + ADR template + runbooks copied
+- ? Phase 2 â€” AI configuration: 14 agents + 10 commands + 10 platform hooks added (project hooks preserved)
+- ? Phase 3 â€” Quality gates: ESLint, Prettier, vitest, husky, commitlint, lint-staged configured; smoke test added
+- ?? Phase 4 â€” CI workflows: workflow files copied; **needs secrets configured by Jason** (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `VITE_SENTRY_DSN`)
+- ?? Phase 5 â€” Observability (frontend): `src/js/sentry.js` copied; **needs Jason to wire it into `index.html` + `callback.html` as the FIRST script**, AND create the Sentry project + DSN secret
+- ? Phase 5 â€” Observability (Lambdas): deferred per PORT_PLAN
+- ? Phase 6 â€” IaC retrofit: deferred (4+ hours, own session)
+- ? Phase 7 â€” User feedback Lambda: deferred per PORT_PLAN
 
 ## Consequences
 
 ### Positive
 
 - Same agent pipeline as game-night-pwa (proven over the last 2 days). Implementer / reviewer / triage-bot / drift-detector / dep-watcher all available.
-- Quality-gate scaffolding installed even though no real tests exist yet — vitest passes on a smoke test; test-writer agent can fill in coverage on subsequent PRs.
+- Quality-gate scaffolding installed even though no real tests exist yet â€” vitest passes on a smoke test; test-writer agent can fill in coverage on subsequent PRs.
 - Frontend Sentry init ready to go pending Jason's DSN + index.html wiring.
 
 ### Negative
@@ -59,5 +59,5 @@ Adopt all 11 platform standards. The following deltas apply:
 
 ## Links
 
-- [PORT_PLAN_meal-planner.md](../../PORT_PLAN_meal-planner.md) (in agentic-dev-environment workspace)
+- `PORT_PLAN_meal-planner.md` (in agentic-dev-environment workspace)
 - Game-night-pwa reference implementation: `https://github.com/jaetill/game-night-pwa`

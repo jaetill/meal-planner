@@ -46,15 +46,42 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Architecture: architecture/overview.md
+  - Standards:
+      - Overview: standards/index.md
+      - Source control: standards/01-source-control.md
+      - CI/CD: standards/02-ci-cd.md
+      - Testing: standards/03-testing.md
+      - Quality gates: standards/04-quality-gates.md
+      - Documentation: standards/05-documentation.md
+      - Observability: standards/06-observability.md
+      - Secrets: standards/07-secrets.md
+      - IaC: standards/08-iac.md
+      - Release management: standards/09-release-management.md
+      - AI workflows: standards/10-ai-workflows.md
+      - User feedback: standards/11-user-feedback.md
   - ADRs:
-      - adr/index.md
-      - 'ADR-0001 — Platform adoption': adr/0001-platform-adoption.md
+      - 'ADR-0001 — Platform adoption (meal-planner)': adr/0001-platform-adoption.md
+      - 'ADR-0001 — Platform foundations': adr/0001-platform-foundations.md
+      - 'ADR-0002 — Source control': adr/0002-source-control.md
+      - 'ADR-0003 — CI/CD': adr/0003-ci-cd.md
+      - 'ADR-0004 — Testing': adr/0004-testing.md
+      - 'ADR-0005 — Quality gates': adr/0005-quality-gates.md
+      - 'ADR-0006 — Secrets': adr/0006-secrets.md
+      - 'ADR-0007 — IaC': adr/0007-iac.md
+      - 'ADR-0008 — Documentation': adr/0008-documentation.md
+      - 'ADR-0009 — Observability': adr/0009-observability.md
+      - 'ADR-0010 — Release management': adr/0010-release-management.md
+      - 'ADR-0011 — AI workflows': adr/0011-ai-workflows.md
+      - 'ADR-0012 — User feedback': adr/0012-user-feedback.md
+      - 'ADR-0013 — Grafana CloudWatch pull': adr/0013-grafana-cloudwatch-pull.md
+      - 'ADR-0014 — Lambda Sentry observability': adr/0014-lambda-sentry-observability.md
+      - 'ADR template': adr/template.md
   - Runbooks:
-      - runbooks/index.md
+      - Overview: runbooks/index.md
       - Deploy: runbooks/deploy.md
       - Rollback: runbooks/rollback.md
       - Incident response: runbooks/incident-response.md
+      - Sentry alerts: runbooks/sentry-alerts.md
       - Secret leak: runbooks/secret-leak.md
       - IaC recovery: runbooks/iac-recover.md
   - Audits:
