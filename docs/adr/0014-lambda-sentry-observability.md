@@ -1,6 +1,6 @@
 # ADR-0014: Lambda Sentry observability — `@sentry/aws-serverless` adoption + PII scrubbing
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-05-17
 - **Deciders:** Jason
 - **Tags:** observability, sentry, security, new-external-dep, lambda
