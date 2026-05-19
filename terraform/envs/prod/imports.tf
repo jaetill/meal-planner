@@ -1,32 +1,6 @@
-# Phase 6 Slice 1 import blocks - Terraform 1.5+ syntax.
-# Process: add import { ... }, run tofu plan, adjust config until zero diff,
-# tofu apply, then remove the import block from this file.
-import {
-  to = aws_s3_bucket.main
-  id = "jaetill-meal-planner"
-}
-
-import {
-  to = aws_s3_bucket_public_access_block.main
-  id = "jaetill-meal-planner"
-}
-
-import {
-  to = aws_s3_bucket_cors_configuration.main
-  id = "jaetill-meal-planner"
-}
-
-import {
-  to = aws_s3_bucket_policy.main
-  id = "jaetill-meal-planner"
-}
-
-import {
-  to = aws_cloudfront_origin_access_control.main
-  id = "EKC2MRJ7AU5FD"
-}
-
-import {
-  to = aws_cloudfront_distribution.main
-  id = "E301SUJKLJO7A7"
-}
+# Phase 6 Slice 1 import blocks - all applied 2026-05-17.
+# Resources now in state; import blocks removed.
+#
+# When adding new slices (Slice 2: IAM, Slice 3: Lambdas, etc.) add
+# new import blocks here, run `tofu plan`, iterate to zero diff, apply,
+# then remove the blocks from this file.
