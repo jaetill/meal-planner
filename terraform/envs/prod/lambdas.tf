@@ -151,3 +151,27 @@ resource "aws_lambda_function" "save" {
     ignore_changes = [filename, source_code_hash]
   }
 }
+
+resource "aws_lambda_function" "feedback" {
+  function_name = "meal-planner-feedback"
+  role          = aws_iam_role.feedback.arn
+  handler       = "feedback.handler"
+  runtime       = "nodejs22.x"
+  architectures = ["x86_64"]
+  memory_size   = 256
+  timeout       = 10
+
+  filename = "${path.module}/placeholder.zip"
+
+  environment {
+    variables = merge(local.observability_env, {
+      GITHUB_REPO_OWNER = "jaetill"
+      GITHUB_REPO_NAME  = "meal-planner"
+      GITHUB_SECRET_ID  = "meal-planner/github-token"
+    })
+  }
+
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+}

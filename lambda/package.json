@@ -4,6 +4,7 @@
   "private": true,
   "description": "Shared dependencies for meal-planner Lambda functions. Each function is bundled with its handler + lib/ + node_modules into a deployment zip.",
   "dependencies": {
+    "@octokit/rest": "^21.0.0",
     "@sentry/aws-serverless": "^9.0.0"
   }
 }

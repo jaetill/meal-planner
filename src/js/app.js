@@ -1,3 +1,4 @@
+import './feedback.js';
 import { isAuthenticated, startLogin, logout, parseIdToken } from './auth.js';
 import { loadRecipes, loadMealPlans, loadActiveGroup, loadStaples, loadAisleOrders } from './data/index.js';
 import { renderRecipes } from './components/renderRecipes.js';

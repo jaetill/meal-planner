@@ -218,3 +218,48 @@ resource "aws_iam_role_policy_attachment" "save_basic_exec" {
   role       = aws_iam_role.save.name
   policy_arn = aws_iam_policy.save_basic_exec.arn
 }
+
+# ── feedback Lambda execution role ────────────────────────────────────────
+
+resource "aws_iam_role" "feedback" {
+  name               = "meal-planner-feedback-role"
+  description        = "Execution role for feedback Lambda (Standard 11)"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
+
+resource "aws_iam_role_policy" "feedback_logs" {
+  name = "logs"
+  role = aws_iam_role.feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "logs:CreateLogGroup"
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-feedback:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "feedback_secrets" {
+  name = "github-token-access"
+  role = aws_iam_role.feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.github_token.arn
+      }
+    ]
+  })
+}
