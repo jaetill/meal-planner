@@ -17,29 +17,53 @@ resource "aws_secretsmanager_secret" "main" {
 resource "aws_cloudwatch_log_group" "groups" {
   name              = "/aws/lambda/meal-planner-groups"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "kroger" {
   name              = "/aws/lambda/meal-planner-kroger"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "nutrition" {
   name              = "/aws/lambda/meal-planner-nutrition"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "plan" {
   name              = "/aws/lambda/meal-planner-plan"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "share" {
   name              = "/aws/lambda/meal-planner-share"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "save" {
   name              = "/aws/lambda/MealPlannerSave"
   retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
