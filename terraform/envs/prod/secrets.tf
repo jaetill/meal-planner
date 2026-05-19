@@ -67,3 +67,15 @@ resource "aws_cloudwatch_log_group" "save" {
     ignore_changes = [tags, tags_all]
   }
 }
+
+# GitHub PAT for feedback Lambda - value set externally via aws CLI:
+#   aws secretsmanager put-secret-value --secret-id meal-planner/github-token \
+#     --secret-string '{"GITHUB_TOKEN":"ghp_..."}'
+# PAT needs: repo scope (specifically: issues:write on jaetill/meal-planner).
+resource "aws_secretsmanager_secret" "github_token" {
+  name        = "meal-planner/github-token"
+  description = "GitHub PAT used by feedback Lambda to file user-feedback issues"
+}
+
+# NOTE: aws_cloudwatch_log_group for feedback omitted - jaetill-dev lacks logs:CreateLogGroup.
+# Lambda auto-creates the log group on first invocation; can be imported later.

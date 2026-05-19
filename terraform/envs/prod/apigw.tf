@@ -621,3 +621,33 @@ resource "aws_lambda_permission" "apigw_plan" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/plan"
 }
+
+# ── feedback endpoint (HTTP API, unauthenticated) ─────────────────────────
+
+resource "aws_apigatewayv2_integration" "mp_http_feedback" {
+  api_id                 = aws_apigatewayv2_api.mp_http.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  integration_uri        = aws_lambda_function.feedback.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "mp_http_feedback_post" {
+  api_id    = aws_apigatewayv2_api.mp_http.id
+  route_key = "POST /feedback"
+  target    = "integrations/${aws_apigatewayv2_integration.mp_http_feedback.id}"
+}
+
+resource "aws_apigatewayv2_route" "mp_http_feedback_options" {
+  api_id    = aws_apigatewayv2_api.mp_http.id
+  route_key = "OPTIONS /feedback"
+  target    = "integrations/${aws_apigatewayv2_integration.mp_http_feedback.id}"
+}
+
+resource "aws_lambda_permission" "apigw_feedback" {
+  statement_id  = "apigw-feedback"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.feedback.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/feedback"
+}
