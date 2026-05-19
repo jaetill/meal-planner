@@ -5,10 +5,11 @@ into Terraform state, one slice at a time.
 
 ## Current state
 
-**Slice 1 (S3 + CloudFront)** — ready to plan and apply. Files: `s3.tf`,
-`cloudfront.tf`, with import blocks in `imports.tf`.
+**Slice 1 (S3 + CloudFront)** — applied 2026-05-17. Files: `s3.tf`, `cloudfront.tf`.
 
-**Slices 2-5** — not yet authored. See "Remaining slices" below.
+**Slice 2 (IAM)** — applied 2026-05-19. File: `iam.tf` (3 roles + 5 inline policies + 1 auto-managed policy).
+
+**Slices 3-5** — not yet authored. See "Remaining slices" below.
 
 ## Prerequisites
 
