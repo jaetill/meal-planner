@@ -138,6 +138,7 @@ ui/toast.js                — toast notifications
 - Each Lambda zipped and deployed individually; adding a new Lambda requires
   both a deploy step in `deploy.yml` AND adding it to `meal-planner-github-deploy`
   role's inline `deploy` policy
+- **IaC**: AWS infrastructure managed as code in `terraform/envs/prod/` (OpenTofu ≥ 1.6). Applied manually on Jason's workstation after PR review — never from CI. See `terraform/README.md` for the slice-by-slice import workflow.
 
 ## Groups & multi-tenancy
 - Every user has one or more groups. All recipe/plan/staple data is group-scoped.
@@ -182,4 +183,4 @@ The platform's subagents, slash commands, and platform hooks are delivered via t
 
 ### Status
 
-See [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md) for full status. Active gaps: Phase 4 secrets, Phase 5 frontend wiring (index.html DSN init — Lambda observability closed by ADR-0014), Phase 6 IaC, Phase 7 feedback Lambda.
+See [docs/adr/0001-platform-adoption.md](docs/adr/0001-platform-adoption.md) for full status. Active gaps: Phase 4 secrets, Phase 5 frontend wiring (index.html DSN init — Lambda observability closed by ADR-0014), Phase 6 IaC (Slice 1: S3+CloudFront merged; Slices 2-5: IAM/Lambda/API GW/Secrets pending), Phase 7 feedback Lambda.

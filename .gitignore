@@ -10,3 +10,9 @@ lambda/*.zip
 .claude/settings.local.json
 .claude/worktrees/
 .claude/mcp.json
+
+# OpenTofu / Terraform
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.backup
