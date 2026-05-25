@@ -45,3 +45,24 @@ describe('parseDurationFromText — range with en-dash', () => {
     expect(parseDurationFromText('stir until smooth')).toBeNull();
   });
 });
+
+describe('parseDurationFromText — hour/second/compound branches', () => {
+  it('parses "1-2 hours" (rangeHour) → { min: 3600, max: 7200 }', () => {
+    expect(parseDurationFromText('1-2 hours')).toEqual({ min: 3600, max: 7200 });
+  });
+  it('parses "10-30 seconds" (rangeSec) → { min: 10, max: 30 }', () => {
+    expect(parseDurationFromText('10-30 seconds')).toEqual({ min: 10, max: 30 });
+  });
+  it('parses "1 hour and 30 minutes" (hourMin compound) → { min: 5400 }', () => {
+    expect(parseDurationFromText('1 hour and 30 minutes')).toEqual({ min: 5400 });
+  });
+  it('parses "bake for 1 hour" (single hour with prefix) → { min: 3600 }', () => {
+    expect(parseDurationFromText('bake for 1 hour')).toEqual({ min: 3600 });
+  });
+  it('parses "cook for 30 seconds" (single sec with prefix) → { min: 30 }', () => {
+    expect(parseDurationFromText('cook for 30 seconds')).toEqual({ min: 30 });
+  });
+  it('parses "for about 20 minutes" (about prefix on min) → { min: 1200 }', () => {
+    expect(parseDurationFromText('for about 20 minutes')).toEqual({ min: 1200 });
+  });
+});
