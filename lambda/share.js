@@ -4,6 +4,7 @@
 // API Gateway must have a Cognito authorizer so claims are present.
 
 const { Sentry } = require('./lib/sentry');
+const { buildTextBody } = require('./lib/share-utils');
 
 const https = require('https');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
@@ -60,35 +61,6 @@ function toSchemaOrg(recipe) {
   return out;
 }
 
-function buildTextBody(recipe) {
-  const lines = [`${recipe.name}`, ''];
-  if (recipe.description) lines.push(recipe.description, '');
-  const meta = [
-    recipe.servings && `Serves: ${recipe.servings}`,
-    recipe.prepTime && `Prep: ${recipe.prepTime}`,
-    recipe.cookTime && `Cook: ${recipe.cookTime}`,
-  ].filter(Boolean);
-  if (meta.length) lines.push(...meta, '');
-  if (recipe.ingredients?.length) {
-    lines.push('Ingredients:');
-    recipe.ingredients.forEach(ing => {
-      const ingName = ing.preparation ? `${ing.name}, ${ing.preparation}` : ing.name;
-      lines.push('  â€¢ ' + [ing.quantity, ing.unit, ingName].filter(Boolean).join(' '));
-    });
-    lines.push('');
-  }
-  if (recipe.directions?.length) {
-    lines.push('Directions:');
-    recipe.directions.forEach((step, i) => {
-      const text = typeof step === 'string' ? step : step.text;
-      if (text?.trim()) lines.push(`  ${i + 1}. ${text}`);
-    });
-    lines.push('');
-  }
-  lines.push('The attached JSON file can be imported into the Meal Planner app at https://meals.jaetill.com');
-  return lines.join('\n');
-}
-
 function postmark(msg) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(msg);
@@ -116,7 +88,7 @@ function postmark(msg) {
   });
 }
 
-// Group authz â€” caller must be in meal-planner-users
+// Group authz — caller must be in meal-planner-users
 function requireGroup(event, group) {
   const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
   const groups = Array.isArray(claim)
