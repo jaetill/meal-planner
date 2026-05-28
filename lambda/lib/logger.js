@@ -56,12 +56,15 @@ function scrubString(value) {
   return out;
 }
 
-function scrubFields(record) {
+function scrubFields(record, depth = 0) {
+  if (depth > 4 || record === null || typeof record !== 'object') return record;
   for (const [key, value] of Object.entries(record)) {
-    if (PII_FIELDS.includes(key) && value !== undefined) {
+    if (PII_FIELDS.includes(key)) {
       record[key] = '[REDACTED]';
     } else if (typeof value === 'string') {
       record[key] = scrubString(value);
+    } else if (typeof value === 'object') {
+      scrubFields(value, depth + 1);
     }
   }
   return record;
