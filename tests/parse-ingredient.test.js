@@ -56,6 +56,22 @@ describe('parseIngredientLine — numeric quantity without unit', () => {
       name: 'garlic',
     });
   });
+
+  it('extracts quantity from unitless line "2 eggs"', () => {
+    expect(parseIngredientLine('2 eggs')).toMatchObject({
+      quantity: '2',
+      unit: '',
+      name: 'eggs',
+    });
+  });
+
+  it('returns empty quantity for bare ingredient "salt"', () => {
+    expect(parseIngredientLine('salt')).toMatchObject({
+      quantity: '',
+      unit: '',
+      name: 'salt',
+    });
+  });
 });
 
 describe('parseIngredientLine — preparation extraction', () => {
