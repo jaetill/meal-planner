@@ -74,6 +74,24 @@ describe('parseIngredientLine — numeric quantity without unit', () => {
   });
 });
 
+describe('parseIngredientLine — unit normalization', () => {
+  it('normalizes "tablespoons" to "tbsp"', () => {
+    expect(parseIngredientLine('2 tablespoons butter')).toMatchObject({ unit: 'tbsp' });
+  });
+  it('normalizes "teaspoon" to "tsp"', () => {
+    expect(parseIngredientLine('1 teaspoon vanilla')).toMatchObject({ unit: 'tsp' });
+  });
+  it('normalizes "pounds" to "lb"', () => {
+    expect(parseIngredientLine('1 pounds chicken')).toMatchObject({ unit: 'lb' });
+  });
+  it('normalizes "ounces" to "oz"', () => {
+    expect(parseIngredientLine('4 ounces cream cheese')).toMatchObject({ unit: 'oz' });
+  });
+  it('normalizes "fluid ounces" to "fl oz"', () => {
+    expect(parseIngredientLine('8 fluid ounces stock')).toMatchObject({ unit: 'fl oz' });
+  });
+});
+
 describe('parseIngredientLine — preparation extraction', () => {
   it('splits comma-separated preparation from "1 cup onions, chopped"', () => {
     expect(parseIngredientLine('1 cup onions, chopped')).toMatchObject({
