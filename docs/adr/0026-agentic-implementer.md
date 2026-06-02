@@ -138,9 +138,9 @@ single attempt by definition).
 ## Links
 
 - ADR-0011 — AI Workflows (parent; establishes 12-subagent architecture and autonomy principle)
-- ADR-0020 — Fleet dispatch and Mode C cleanup-sweep
-- ADR-0029 — Adjacent-nit bundling (bundle_issues input)
-- ADR-0030 — Trim local trigger to human-only `ready-for-implementer`
-- ADR-0034 — Thin reusable caller (workflow shape; implementer logic lives in platform repo)
+- ADR-0020 — Fleet dispatch and Mode C cleanup-sweep *(pending)*
+- ADR-0029 — Adjacent-nit bundling (bundle_issues input) *(pending)*
+- ADR-0030 — Trim local trigger to human-only `ready-for-implementer` *(pending)*
+- ADR-0034 — Thin reusable caller (workflow shape; implementer logic lives in platform repo) *(pending)*
 - ADR-0007 — IaC (governs the terraform exclusion)
 - ADR-0005 — Quality gates (reviewer comment structure that Mode B depends on)
