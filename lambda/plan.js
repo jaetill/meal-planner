@@ -1,7 +1,7 @@
-// Lambda: meal-planner-plan â€” AI-assisted meal plan generation
-//   POST /plan â€” generate or refine a weekly meal plan using Claude
+// Lambda: meal-planner-plan — AI-assisted meal plan generation
+//   POST /plan — generate or refine a weekly meal plan using Claude
 //
-// Auth: Cognito authorizer â€” userId from event.requestContext.authorizer.claims['cognito:username']
+// Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
 // Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
 // S3 paths read: groups/{groupId}/recipes.json
 
@@ -12,6 +12,8 @@ const { Sentry } = require('./lib/sentry');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const https = require('https');
+
+const { formatForecast } = require('./lib/plan-utils');
 
 const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 
@@ -34,7 +36,7 @@ const CORS = {
   'Content-Type': 'application/json',
 };
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Helpers --------------------------------------------------
 
 async function s3Get(key) {
   const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
@@ -82,7 +84,7 @@ function callClaude(system, userPrompt) {
   });
 }
 
-// â”€â”€ Recipe digest builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Recipe digest builder ------------------------------------
 
 function calcNutritionPerServing(recipe) {
   const servings = recipe.servings || 1;
@@ -134,29 +136,29 @@ function buildRecipeDigest(recipes) {
   return `ID | Name | Tags | Total Time | Cal/srv | Pro/srv | Key Ingredients\n` + lines.join('\n');
 }
 
-// â”€â”€ System prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- System prompt --------------------------------------------
 
 const SYSTEM_PROMPT = `You are a meal planning assistant. Given a recipe catalog, weather forecast, seasonal produce info, and constraints, create a weekly meal plan.
 
 Optimize for:
-1. Nutritional balance â€” hit daily calorie and macro targets when provided
-2. Variety â€” avoid repeating the same protein source on consecutive days; mix cuisines and cooking methods
-3. Ingredient overlap â€” share perishable ingredients across meals in the same week to reduce grocery waste (e.g. if two recipes use cilantro, schedule them close together)
-4. Time fit â€” respect per-day time constraints:
+1. Nutritional balance — hit daily calorie and macro targets when provided
+2. Variety — avoid repeating the same protein source on consecutive days; mix cuisines and cooking methods
+3. Ingredient overlap — share perishable ingredients across meals in the same week to reduce grocery waste (e.g. if two recipes use cilantro, schedule them close together)
+4. Time fit — respect per-day time constraints:
    - "quick" = under 30 min total prep+cook
    - "normal" = under 60 min (default)
    - "elaborate" = no time limit, can be a complex recipe
    - "none" = skip this day entirely (eating out, no cooking)
-5. Practical flow â€” schedule batch-cook-friendly or crockpot meals earlier in the week when possible
-6. Leftovers â€” when a recipe makes more servings than needed, suggest eating leftovers for a subsequent lunch or dinner instead of cooking a new meal. Mark leftover entries with plainText like "Leftovers: [Recipe Name]".
-7. Complete meals â€” dinner entries should be full meals, not just a single dish. If a recipe is only a main (e.g. "Garlic Chicken"), add a plainText side dish or two to complement it (e.g. "Steamed broccoli and rice"). Use your judgment: a recipe like "Chicken Stir Fry with Rice" is already complete, but "Grilled Salmon" needs sides. Breakfasts and lunches can be standalone.
-8. Weather awareness â€” when a weather forecast is provided, factor it in:
-   - Hot days (85Â°F+): favor lighter meals, salads, no-cook options, grilling if not rainy
+5. Practical flow — schedule batch-cook-friendly or crockpot meals earlier in the week when possible
+6. Leftovers — when a recipe makes more servings than needed, suggest eating leftovers for a subsequent lunch or dinner instead of cooking a new meal. Mark leftover entries with plainText like "Leftovers: [Recipe Name]".
+7. Complete meals — dinner entries should be full meals, not just a single dish. If a recipe is only a main (e.g. "Garlic Chicken"), add a plainText side dish or two to complement it (e.g. "Steamed broccoli and rice"). Use your judgment: a recipe like "Chicken Stir Fry with Rice" is already complete, but "Grilled Salmon" needs sides. Breakfasts and lunches can be standalone.
+8. Weather awareness — when a weather forecast is provided, factor it in:
+   - Hot days (85°F+): favor lighter meals, salads, no-cook options, grilling if not rainy
    - Rainy/stormy days: skip grilling, favor indoor cooking, comfort food is fine
    - Cold days: soups, stews, hearty meals are great choices
    - Nice mild weather: good grilling days
    These are soft preferences, not hard rules. Use common sense.
-9. Seasonal produce â€” when seasonal produce info is provided, lean toward recipes that feature in-season ingredients. This is a soft preference for flavor and cost â€” never exclude a recipe just because it uses a pantry staple (onions, garlic, potatoes, canned goods) that isn't "in season." Seasonality applies to fresh produce highlights, not staples.
+9. Seasonal produce — when seasonal produce info is provided, lean toward recipes that feature in-season ingredients. This is a soft preference for flavor and cost — never exclude a recipe just because it uses a pantry staple (onions, garlic, potatoes, canned goods) that isn't "in season." Seasonality applies to fresh produce highlights, not staples.
 
 Rules:
 - Only assign recipes from the provided catalog. Never invent recipes.
@@ -179,7 +181,7 @@ Return ONLY valid JSON matching this exact structure:
 For plain-text items (no recipe), use this format instead:
 { "date": "YYYY-MM-DD", "meal": "Breakfast", "plainText": "Oatmeal with berries", "reasoning": "Quick healthy breakfast" }`;
 
-// â”€â”€ Weather forecast (Open-Meteo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Weather forecast (Open-Meteo) ------------------------
 
 function fetchWeather(latitude, longitude, dates) {
   const startDate = dates[0];
@@ -208,24 +210,8 @@ function fetchWeather(latitude, longitude, dates) {
   });
 }
 
-const WMO_CONDITIONS = {
-  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
-  45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
-  61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain',
-  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 80: 'Rain showers', 81: 'Rain showers',
-  82: 'Heavy rain showers', 85: 'Snow showers', 86: 'Heavy snow showers',
-  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ hail',
-};
 
-function formatForecast(forecast) {
-  return forecast.map(d => {
-    const cond = WMO_CONDITIONS[d.code] || 'Unknown';
-    const rain = d.precipMm > 0 ? `, ${d.precipMm}mm precip` : '';
-    return `${d.date}: High ${d.highF}Â°F / Low ${d.lowF}Â°F, ${cond}${rain}`;
-  }).join('\n');
-}
-
-// â”€â”€ Seasonal produce lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Seasonal produce lookup -----------------------------
 
 const SEASONAL_PRODUCE = {
   1:  'citrus (oranges, grapefruit, lemons), kale, sweet potatoes, winter squash, cabbage, leeks, parsnips, turnips, beets, Brussels sprouts',
@@ -252,7 +238,7 @@ function getSeasonalProduce(dates) {
   return lines.join('\n');
 }
 
-// â”€â”€ Generate action â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Generate action ------------------------------------------
 
 async function handleGenerate(body) {
   const { groupId, week, dates: rawDates, preferences = {}, existingEntries = [], history = [], location } = body;
@@ -279,7 +265,7 @@ async function handleGenerate(body) {
     dayConstraints = {},
   } = preferences;
 
-  // Build the dates to plan â€” either explicit array or expand from week Monday
+  // Build the dates to plan — either explicit array or expand from week Monday
   let dates;
   if (rawDates && Array.isArray(rawDates) && rawDates.length > 0) {
     dates = rawDates.sort();
@@ -293,7 +279,7 @@ async function handleGenerate(body) {
     });
   }
 
-  // Fetch weather forecast (non-blocking â€” don't fail the plan if weather is unavailable)
+  // Fetch weather forecast (non-blocking — don't fail the plan if weather is unavailable)
   let weatherText = null;
   if (location?.latitude && location?.longitude) {
     try {
@@ -389,7 +375,7 @@ async function handleGenerate(body) {
   return respond(200, result);
 }
 
-// â”€â”€ Refine action â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Refine action --------------------------------------------
 
 async function handleRefine(body) {
   const { groupId, currentPlan, refinement } = body;
@@ -440,9 +426,9 @@ async function handleRefine(body) {
   return respond(200, result);
 }
 
-// â”€â”€ Main handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Main handler ---------------------------------------------
 
-// Group authz â€” caller must be in meal-planner-users
+// Group authz — caller must be in meal-planner-users
 function requireGroup(event, group) {
   const claim = event.requestContext?.authorizer?.claims?.['cognito:groups'];
   const groups = Array.isArray(claim)
