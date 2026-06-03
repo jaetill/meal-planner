@@ -31,43 +31,45 @@ function scrubObject(obj, depth = 0) {
   }
 }
 
+// PII scrubbing per ADR-0006. The default integrations include
+// `consoleIntegration`, which captures every `console.log` (= every line the
+// structured logger emits) as a breadcrumb on subsequent `captureException`
+// events. Without scrubbing here, an email embedded in an upstream error
+// string can land in Sentry via the breadcrumb path.
+function beforeSend(event) {
+  if (event.user) {
+    delete event.user.email;
+    delete event.user.username;
+    delete event.user.ip_address;
+  }
+  if (event.breadcrumbs) {
+    for (const bc of event.breadcrumbs) {
+      if (bc.message) bc.message = scrubString(bc.message);
+      if (bc.data) scrubObject(bc.data);
+    }
+  }
+  if (event.exception?.values) {
+    for (const ex of event.exception.values) {
+      if (ex.value) ex.value = scrubString(ex.value);
+    }
+  }
+  if (event.extra) scrubObject(event.extra);
+  return event;
+}
+
+function beforeBreadcrumb(breadcrumb) {
+  if (breadcrumb.message) breadcrumb.message = scrubString(breadcrumb.message);
+  if (breadcrumb.data) scrubObject(breadcrumb.data);
+  return breadcrumb;
+}
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.DEPLOY_ENV || 'production',
   release: process.env.RELEASE_VERSION || 'unknown',
   tracesSampleRate: 0.1,
-
-  // PII scrubbing per ADR-0006. The default integrations include
-  // `consoleIntegration`, which captures every `console.log` (= every line the
-  // structured logger emits) as a breadcrumb on subsequent `captureException`
-  // events. Without scrubbing here, an email embedded in an upstream error
-  // string can land in Sentry via the breadcrumb path.
-  beforeSend(event) {
-    if (event.user) {
-      delete event.user.email;
-      delete event.user.username;
-      delete event.user.ip_address;
-    }
-    if (event.breadcrumbs) {
-      for (const bc of event.breadcrumbs) {
-        if (bc.message) bc.message = scrubString(bc.message);
-        if (bc.data) scrubObject(bc.data);
-      }
-    }
-    if (event.exception?.values) {
-      for (const ex of event.exception.values) {
-        if (ex.value) ex.value = scrubString(ex.value);
-      }
-    }
-    if (event.extra) scrubObject(event.extra);
-    return event;
-  },
-
-  beforeBreadcrumb(breadcrumb) {
-    if (breadcrumb.message) breadcrumb.message = scrubString(breadcrumb.message);
-    if (breadcrumb.data) scrubObject(breadcrumb.data);
-    return breadcrumb;
-  },
+  beforeSend,
+  beforeBreadcrumb,
 });
 
-module.exports = { Sentry };
+module.exports = { Sentry, scrubString, scrubObject, beforeSend, beforeBreadcrumb };
