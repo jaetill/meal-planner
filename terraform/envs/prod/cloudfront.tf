@@ -27,10 +27,6 @@ resource "aws_cloudfront_distribution" "main" {
     domain_name              = aws_s3_bucket.main.bucket_regional_domain_name
     origin_id                = "s3-meal-planner"
     origin_access_control_id = aws_cloudfront_origin_access_control.main.id
-
-    s3_origin_config {
-      origin_access_identity = ""
-    }
   }
 
   default_cache_behavior {
