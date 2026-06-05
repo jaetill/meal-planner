@@ -12,3 +12,4 @@ terraform {
     dynamodb_table = "terraform-state-lock"
   }
 }
+# iac-guard verification (#280) - remove after guard confirmed green
