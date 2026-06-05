@@ -175,6 +175,7 @@ resource "aws_iam_role_policy" "github_deploy" {
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-kroger",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-share",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-plan",
+          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-feedback",
         ]
       }
     ]
