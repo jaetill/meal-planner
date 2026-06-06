@@ -44,6 +44,21 @@ resource "aws_s3_bucket_policy" "main" {
             "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
           }
         }
+      },
+      # Deny CloudFront read access to feedback-contacts/ — this prefix stores
+      # submitter email addresses (PII) and must never be served publicly.
+      # Explicit Deny overrides the AllowCloudFrontOAC wildcard above.
+      {
+        Sid       = "DenyCloudFrontFeedbackContacts"
+        Effect    = "Deny"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.main.arn}/feedback-contacts/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
+          }
+        }
       }
     ]
   })
