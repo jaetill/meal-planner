@@ -1,8 +1,9 @@
 # ADR-0035 — read-only OIDC role for the iac-additive-guard.
 #
 # Plans terraform/envs/prod on PRs (and is available for a future drift
-# detector) under ReadOnlyAccess + tfstate read. Trust gates assume-role on
-# this repo's GitHub OIDC for the default branch (master) and pull_request.
+# detector) using a scoped inline plan-read-only policy + tfstate read.
+# Trust gates assume-role on this repo's GitHub OIDC for the default branch
+# (master) and pull_request.
 # Created out-of-band 2026-06-05 (platform #280) and imported here so it is
 # Terraform-managed. Mirrors game-night-pwa's iac_drift role.
 
@@ -36,9 +37,108 @@ data "aws_iam_policy_document" "iac_drift_trust" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "iac_drift_read_only" {
-  role       = aws_iam_role.iac_drift.name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+# Scoped plan-only policy: describe/list actions Terraform needs to run
+# `tofu plan`. Excludes s3:GetObject and secretsmanager:GetSecretValue so
+# PR workflows (public repo + OIDC) cannot read user data or secret values.
+data "aws_iam_policy_document" "iac_drift_plan" {
+  statement {
+    sid     = "IAMRead"
+    effect  = "Allow"
+    actions = [
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListPolicyVersions",
+      "iam:ListRolePolicies",
+      "iam:ListRoleTags",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "LambdaRead"
+    effect  = "Allow"
+    actions = [
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:GetPolicy",
+      "lambda:ListFunctions",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "APIGatewayRead"
+    effect    = "Allow"
+    actions   = ["apigateway:GET"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "CloudFrontRead"
+    effect  = "Allow"
+    actions = [
+      "cloudfront:GetDistribution",
+      "cloudfront:GetDistributionConfig",
+      "cloudfront:GetOriginAccessControl",
+      "cloudfront:ListDistributions",
+      "cloudfront:ListOriginAccessControls",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "S3BucketMetaRead"
+    effect  = "Allow"
+    actions = [
+      "s3:GetBucketCORS",
+      "s3:GetBucketLocation",
+      "s3:GetBucketObjectLockConfiguration",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketPolicyStatus",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
+      "s3:GetBucketTagging",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketWebsite",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+      "s3:ListAllMyBuckets",
+      "s3:ListBucket",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "SecretsManagerDescribe"
+    effect  = "Allow"
+    actions = [
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:ListSecrets",
+      "secretsmanager:ListSecretVersionIds",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "CloudWatchLogsRead"
+    effect  = "Allow"
+    actions = [
+      "logs:DescribeLogGroups",
+      "logs:ListTagsForResource",
+      "logs:ListTagsLogGroup",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "iac_drift_plan" {
+  name   = "plan-read-only"
+  role   = aws_iam_role.iac_drift.id
+  policy = data.aws_iam_policy_document.iac_drift_plan.json
 }
 
 data "aws_iam_policy_document" "iac_drift_tfstate" {
