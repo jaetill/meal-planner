@@ -134,21 +134,27 @@ describe('beforeSend', () => {
     expect(result.exception.values[0].value).toBe('failed for [REDACTED_EMAIL]');
   });
 
-  it('scrubs email from breadcrumb messages', () => {
+  it('scrubs email from breadcrumb messages (SDK v9 {values:[]} shape)', () => {
     const event = {
-      breadcrumbs: [{ message: 'request from user@example.com' }],
+      breadcrumbs: { values: [{ message: 'request from user@example.com' }] },
     };
+    expect(() => beforeSend(event)).not.toThrow();
     const result = beforeSend(event);
-    expect(result.breadcrumbs[0].message).not.toContain('user@example.com');
-    expect(result.breadcrumbs[0].message).toContain('[REDACTED_EMAIL]');
+    expect(result.breadcrumbs.values[0].message).not.toContain('user@example.com');
+    expect(result.breadcrumbs.values[0].message).toContain('[REDACTED_EMAIL]');
   });
 
-  it('scrubs email from breadcrumb data objects', () => {
+  it('scrubs email from breadcrumb data objects (SDK v9 {values:[]} shape)', () => {
     const event = {
-      breadcrumbs: [{ data: { recipient: 'user@example.com' } }],
+      breadcrumbs: { values: [{ data: { recipient: 'user@example.com' } }] },
     };
     const result = beforeSend(event);
-    expect(result.breadcrumbs[0].data.recipient).toBe('[REDACTED_EMAIL]');
+    expect(result.breadcrumbs.values[0].data.recipient).toBe('[REDACTED_EMAIL]');
+  });
+
+  it('does not throw when breadcrumbs has no values array', () => {
+    const event = { breadcrumbs: {} };
+    expect(() => beforeSend(event)).not.toThrow();
   });
 
   it('scrubs email from event.extra', () => {
