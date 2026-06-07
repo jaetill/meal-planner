@@ -58,14 +58,9 @@ data "aws_iam_policy_document" "iac_drift_plan" {
   }
 
   statement {
-    sid     = "LambdaRead"
-    effect  = "Allow"
-    actions = [
-      "lambda:GetFunction",
-      "lambda:GetFunctionConfiguration",
-      "lambda:GetPolicy",
-      "lambda:ListFunctions",
-    ]
+    sid       = "LambdaRead"
+    effect    = "Allow"
+    actions   = ["lambda:ListFunctions"]
     resources = ["*"]
   }
 
