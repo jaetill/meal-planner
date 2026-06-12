@@ -14,6 +14,8 @@ const COMMIT_INPUT = JSON.stringify({ tool_input: { command: 'git commit -m "tes
 // Split across runtime concat so the source literals don't trigger check-secrets
 // when this file is staged. The staged test-file content still matches the hook.
 const VAR_NAME = 'API' + '_KEY';
+const KROGER_VAR = 'kroger' + '_client';
+const USDA_VAR = 'usda' + '_key';
 const LONG_VAL = 'abcdefghijklmnopqrstuvwxyz1234'; // 30 chars, clearly not a real secret
 
 function setupRepo() {
@@ -43,6 +45,22 @@ describe('check-secrets hook', () => {
   it('blocks a single-quoted credential value', () => {
     const dir = setupRepo();
     stageFile(dir, 'config.js', `const ${VAR_NAME} = '${LONG_VAL}';\n`);
+    const r = runHook(dir);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('BLOCKED');
+  });
+
+  it('blocks a single-quoted Kroger credential', () => {
+    const dir = setupRepo();
+    stageFile(dir, 'config.js', `const ${KROGER_VAR} = '${LONG_VAL}';\n`);
+    const r = runHook(dir);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('BLOCKED');
+  });
+
+  it('blocks a single-quoted USDA key', () => {
+    const dir = setupRepo();
+    stageFile(dir, 'config.js', `const ${USDA_VAR} = '${LONG_VAL}';\n`);
     const r = runHook(dir);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('BLOCKED');
