@@ -20,10 +20,10 @@ jobs:
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0   # full history for set-commits=auto
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -37,7 +37,7 @@ jobs:
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_DEPLOY_ENV: production
           VITE_RELEASE_VERSION: ${{ github.sha }}
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-2
@@ -155,7 +155,7 @@ jobs:
       # RELEASE_VERSION env var (set out-of-band via aws lambda update-function-configuration).
       - name: Create Sentry release
         if: env.SENTRY_AUTH_TOKEN != ''
-        uses: getsentry/action-release@v1
+        uses: getsentry/action-release@v3
         with:
           version: ${{ github.sha }}
           environment: production
