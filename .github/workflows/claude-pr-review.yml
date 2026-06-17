@@ -13,5 +13,5 @@ permissions:
   id-token: write
 jobs:
   review:
-    uses: jaetill/agentic-dev-environment/.github/workflows/claude-pr-review.yml@main
+    uses: jaetill/agentic-dev-environment/.github/workflows/claude-pr-review.yml@6d25d4011a0c23a6e506c16f84f1a5ca10da8353 # main
     secrets: inherit
