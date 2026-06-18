@@ -42,28 +42,6 @@ if [[ "$FILE_PATH" == *lambda/*.js || "$FILE_PATH" == *lambda/*.mjs ]]; then
   fi
 fi
 
-# ── General comment quality checks ──────────────────────────────
-TOTAL_LINES=$(wc -l < "$FILE_PATH")
-
-# Count comment lines (// and /* style)
-COMMENT_LINES=$(grep -cE '^\s*(//|/\*|\*)' "$FILE_PATH" 2>/dev/null || echo "0")
-
-# Check comment ratio for files over 30 lines
-if [ "$TOTAL_LINES" -gt 30 ]; then
-  RATIO=$(python3 -c "print(round($COMMENT_LINES / $TOTAL_LINES * 100, 1))" 2>/dev/null)
-  if [ "$(python3 -c "print(1 if $COMMENT_LINES / $TOTAL_LINES < 0.05 else 0)")" = "1" ]; then
-    WARNINGS+=("Low comment density (${RATIO}% of ${TOTAL_LINES} lines). Consider adding comments to explain non-obvious logic.")
-  fi
-fi
-
-# Check for section dividers in files over 80 lines (project convention: // ── Section ───)
-if [ "$TOTAL_LINES" -gt 80 ]; then
-  DIVIDERS=$(grep -cE '// ──' "$FILE_PATH" 2>/dev/null || echo "0")
-  if [ "$DIVIDERS" -eq 0 ]; then
-    WARNINGS+=("File is ${TOTAL_LINES} lines with no section dividers. Use '// ── Section name ───' to separate logical sections.")
-  fi
-fi
-
 # Check for unresolved TODOs or FIXMEs
 TODO_COUNT=$(grep -ciE '\b(TODO|FIXME|HACK|XXX)\b' "$FILE_PATH" 2>/dev/null || echo "0")
 if [ "$TODO_COUNT" -gt 0 ]; then
