@@ -110,12 +110,9 @@ resource "aws_iam_role_policy" "save_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject"]
-        Resource = [
-          "arn:aws:s3:::jaetill-meal-planner",
-          "arn:aws:s3:::jaetill-meal-planner/*",
-        ]
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject"]
+        Resource = "arn:aws:s3:::jaetill-meal-planner/*"
       }
     ]
   })
@@ -147,12 +144,14 @@ resource "aws_iam_role_policy" "github_deploy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
-        Resource = [
-          "arn:aws:s3:::jaetill-meal-planner",
-          "arn:aws:s3:::jaetill-meal-planner/*",
-        ]
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = "arn:aws:s3:::jaetill-meal-planner"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = "arn:aws:s3:::jaetill-meal-planner/*"
       },
       {
         Effect   = "Allow"
@@ -175,6 +174,7 @@ resource "aws_iam_role_policy" "github_deploy" {
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-kroger",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-share",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-plan",
+          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-feedback",
         ]
       }
     ]

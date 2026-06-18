@@ -22,7 +22,7 @@ resource "aws_s3_bucket_cors_configuration" "main" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = ["https://meals.jaetill.com", "http://localhost:5173"]
+    allowed_origins = ["https://meals.jaetill.com"]
     expose_headers  = ["ETag"]
   }
 }
@@ -39,6 +39,21 @@ resource "aws_s3_bucket_policy" "main" {
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.main.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
+          }
+        }
+      },
+      # Deny CloudFront read access to feedback-contacts/ — this prefix stores
+      # submitter email addresses (PII) and must never be served publicly.
+      # Explicit Deny overrides the AllowCloudFrontOAC wildcard above.
+      {
+        Sid       = "DenyCloudFrontFeedbackContacts"
+        Effect    = "Deny"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.main.arn}/feedback-contacts/*"
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
