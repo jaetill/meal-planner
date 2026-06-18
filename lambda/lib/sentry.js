@@ -42,8 +42,8 @@ function beforeSend(event) {
     delete event.user.username;
     delete event.user.ip_address;
   }
-  if (event.breadcrumbs) {
-    for (const bc of event.breadcrumbs) {
+  if (event.breadcrumbs?.values) {
+    for (const bc of event.breadcrumbs.values) {
       if (bc.message) bc.message = scrubString(bc.message);
       if (bc.data) scrubObject(bc.data);
     }

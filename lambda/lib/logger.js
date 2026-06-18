@@ -92,4 +92,8 @@ module.exports = {
   warn: (msg, fields = {}) => emit('WARN', msg, fields),
   error: (msg, fields = {}) => emit('ERROR', msg, fields),
   fatal: (msg, fields = {}) => emit('FATAL', msg, fields),
+  // exported for unit testing (issue #23)
+  scrubString,
+  scrubFields,
+  PII_FIELDS,
 };

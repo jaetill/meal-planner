@@ -5,6 +5,21 @@
 #   4135ea2d-6df8-44a3-9df3-4b5a84be39ad = Managed-CachingOptimized
 #   658327ea-f89d-4fab-a63d-7e88639e58f6 = Managed-CachingOptimizedForUncompressedObjects
 #   5cc3b908-e619-4b99-88e5-2cf7f45965bd = response headers policy (project-specific)
+#
+# deny_feedback_contacts — CloudFront Function that returns 403 at the edge for
+# feedback-contacts/* before the request reaches the origin. Complements the
+# explicit-deny bucket policy statement (s3.tf) added in #121: using a CF Function
+# here ensures the client receives a genuine HTTP 403 rather than the SPA fallback
+# (the custom_error_response 403→200/index.html transform applies only to origin
+# errors, not to CF-generated responses).
+
+resource "aws_cloudfront_function" "deny_feedback_contacts" {
+  name    = "meal-planner-deny-feedback-contacts"
+  runtime = "cloudfront-js-2.0"
+  comment = "Block public read of feedback-contacts/ — email PII prefix (issue #120)"
+  publish = true
+  code    = "function handler(event) { return { statusCode: 403, statusDescription: 'Forbidden' }; }"
+}
 
 resource "aws_cloudfront_origin_access_control" "main" {
   name                              = "meal-planner-oac"
@@ -47,6 +62,20 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "feedback-contacts/*"
+    target_origin_id       = "s3-meal-planner"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    cache_policy_id        = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.deny_feedback_contacts.arn
+    }
   }
 
   custom_error_response {

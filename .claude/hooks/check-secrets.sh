@@ -20,6 +20,9 @@ fi
 
 ISSUES=()
 
+# \x27 inside ERE [...] is non-standard; use bash string concat to embed a literal single quote
+QUOTE_PAT='["'"'"']'
+
 # Check for AWS access keys (AKIA...)
 if echo "$DIFF" | grep -nE 'AKIA[0-9A-Z]{16}' > /dev/null; then
   ISSUES+=("AWS access key (AKIA...) found in staged changes")
@@ -27,7 +30,7 @@ fi
 
 # Check for common secret patterns assigned to variables
 # Matches: key = "sk-...", token: "abc123...", secret = 'longstring'
-if echo "$DIFF" | grep -nEi '(api[_-]?key|secret|token|password|credential)\s*[:=]\s*["\x27][A-Za-z0-9+/=_-]{16,}' > /dev/null; then
+if echo "$DIFF" | grep -nEi "(api[_-]?key|secret|token|password|credential)\\s*[:=]\\s*${QUOTE_PAT}[A-Za-z0-9+/=_-]{16,}" > /dev/null; then
   ISSUES+=("Possible hardcoded secret (API key, token, or password) found in staged changes")
 fi
 
@@ -42,12 +45,12 @@ if echo "$DIFF" | grep -nEi '(postmark|smtp)\s*[:=]' > /dev/null; then
 fi
 
 # Check for Kroger credentials
-if echo "$DIFF" | grep -nEi 'kroger.*(client|secret|key)\s*[:=]\s*["\x27]' > /dev/null; then
+if echo "$DIFF" | grep -nEi "kroger.*(client|secret|key)\\s*[:=]\\s*${QUOTE_PAT}" > /dev/null; then
   ISSUES+=("Possible Kroger credential found in staged changes")
 fi
 
 # Check for USDA API keys
-if echo "$DIFF" | grep -nEi 'usda.*(key|token)\s*[:=]\s*["\x27]' > /dev/null; then
+if echo "$DIFF" | grep -nEi "usda.*(key|token)\\s*[:=]\\s*${QUOTE_PAT}" > /dev/null; then
   ISSUES+=("Possible USDA API key found in staged changes")
 fi
 
