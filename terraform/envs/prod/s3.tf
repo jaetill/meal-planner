@@ -22,7 +22,7 @@ resource "aws_s3_bucket_cors_configuration" "main" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "PUT", "POST", "DELETE"]
-    allowed_origins = ["https://meals.jaetill.com", "http://localhost:5173"]
+    allowed_origins = ["https://meals.jaetill.com"]
     expose_headers  = ["ETag"]
   }
 }
