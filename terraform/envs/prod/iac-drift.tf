@@ -128,6 +128,15 @@ data "aws_iam_policy_document" "iac_drift_plan" {
     ]
     resources = ["*"]
   }
+
+  # Explicit belt-and-suspenders deny: overrides any future accidental Allow on
+  # s3:GetObject in this role, ensuring user data is never readable via OIDC.
+  statement {
+    sid       = "DenyUserDataBucketRead"
+    effect    = "Deny"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::jaetill-meal-planner/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "iac_drift_plan" {

@@ -25,12 +25,12 @@ Adopt all 11 platform standards. The following deltas apply:
 - **Group claim:** `meal-planner-users`
 - **App Client:** `2g8kng7thvouq1ami8cm336gbb`
 - **API Gateway:** `e2h43o5aje`
-- **`.claude/`:** existing project-specific hooks preserved (`check-comments.sh`, `check-secrets.sh`, `protect-files.sh`); platform hooks added alongside without overwriting.
+- **`.claude/`:** existing project-specific hooks preserved (`check-comments.sh`, `check-secrets.sh`, `protect-files.sh`) and registered directly in `settings.json`; platform agents, commands, and hooks are plugin-delivered via the `ai-team` subscription (PR #5, ADR-0015) — no locally-committed copies.
 
 ## Implementation status (initial PR, 2026-05-13)
 
 - ? Phase 1 — Documentation: standards + ADR template + runbooks copied
-- ? Phase 2 — AI configuration: 14 agents + 10 commands + 10 platform hooks added (project hooks preserved)
+- ? Phase 2 — AI configuration: 14 agents + 10 commands + 10 platform hooks migrated to `ai-team` plugin subscription in PR #5 (ADR-0015); locally-committed copies removed from `.claude/`; project hooks preserved in `settings.json`
 - ? Phase 3 — Quality gates: ESLint, Prettier, vitest, husky, commitlint, lint-staged configured; smoke test added
 - ?? Phase 4 — CI workflows: workflow files copied; **needs secrets configured by Jason** (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `VITE_SENTRY_DSN`)
 - ?? Phase 5 — Observability (frontend): `src/js/sentry.js` copied; **needs Jason to wire it into `index.html` + `callback.html` as the FIRST script**, AND create the Sentry project + DSN secret
