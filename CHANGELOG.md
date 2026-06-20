@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.1.0](https://github.com/jaetill/meal-planner/compare/v1.0.0...v1.1.0) (2026-06-18)
+
+
+### Features
+
+* **iac:** add ADR-0035 iac-additive-guard caller ([#280](https://github.com/jaetill/meal-planner/issues/280)) ([#108](https://github.com/jaetill/meal-planner/issues/108)) ([06107d5](https://github.com/jaetill/meal-planner/commit/06107d5f0b89384b9c09739da74907a729bcc677))
+
+
+### Bug Fixes
+
+* **ci:** pin iac-guard reusable workflow to SHA and add dependabot ([#131](https://github.com/jaetill/meal-planner/issues/131)) ([882cb63](https://github.com/jaetill/meal-planner/commit/882cb635f67ddda58050abfff9a7a5c2cee4fd3e)), closes [#109](https://github.com/jaetill/meal-planner/issues/109)
+* **ci:** scope reusable secrets explicitly (ADR-0048) ([#140](https://github.com/jaetill/meal-planner/issues/140)) ([84060be](https://github.com/jaetill/meal-planner/commit/84060be69f087b381b0cbb216f9ad20bacf1e490))
+* **hooks:** drop comment-ratio and section-divider checks from check-comments ([#130](https://github.com/jaetill/meal-planner/issues/130)) ([2800b69](https://github.com/jaetill/meal-planner/commit/2800b69664e472b730eecf48f4ee5f8328d04d86)), closes [#3](https://github.com/jaetill/meal-planner/issues/3)
+* **hooks:** replace \x27 in ERE bracket expressions with portable QUOTE_PAT ([#127](https://github.com/jaetill/meal-planner/issues/127)) ([cf34c4e](https://github.com/jaetill/meal-planner/commit/cf34c4e42e361ce286ebbc84dd09617021446d2c)), closes [#4](https://github.com/jaetill/meal-planner/issues/4)
+* **iac:** add CF Function edge-deny for feedback-contacts/* (closes [#120](https://github.com/jaetill/meal-planner/issues/120)) ([#124](https://github.com/jaetill/meal-planner/issues/124)) ([dc345e7](https://github.com/jaetill/meal-planner/commit/dc345e7749011f784bfd02f731dd1e696f7c5a76))
+* **iac:** add explicit s3:GetObject deny for jaetill-meal-planner (closes [#112](https://github.com/jaetill/meal-planner/issues/112)) ([#126](https://github.com/jaetill/meal-planner/issues/126)) ([7214c32](https://github.com/jaetill/meal-planner/commit/7214c322c06036b81bc6f7d32317ea67c990ba8d))
+* **iac:** deny CloudFront OAC read on feedback-contacts/* (closes [#121](https://github.com/jaetill/meal-planner/issues/121)) ([#123](https://github.com/jaetill/meal-planner/issues/123)) ([1a3f3d1](https://github.com/jaetill/meal-planner/commit/1a3f3d13c1969ff19661f8bc79700854a82bdbd1))
+* **iac:** drop GetFunction/GetFunctionConfiguration/GetPolicy from iac-drift LambdaRead (closes [#118](https://github.com/jaetill/meal-planner/issues/118)) ([#125](https://github.com/jaetill/meal-planner/issues/125)) ([7eef8e6](https://github.com/jaetill/meal-planner/commit/7eef8e62ef352e56053c967f6f668a27ec5bf03a))
+* **iac:** remove s3_origin_config conflicting with OAC in cloudfront.tf ([#99](https://github.com/jaetill/meal-planner/issues/99)) ([a704bdc](https://github.com/jaetill/meal-planner/commit/a704bdc0390958842c7d80c30bfb4dcce678e2fb)), closes [#35](https://github.com/jaetill/meal-planner/issues/35)
+* **iac:** scope iac-drift role from ReadOnlyAccess to plan-only policy (closes [#113](https://github.com/jaetill/meal-planner/issues/113)) ([#116](https://github.com/jaetill/meal-planner/issues/116)) ([fc69ac5](https://github.com/jaetill/meal-planner/commit/fc69ac54fa550b0b98bbbc9f818828b589d6655c))
+* **iam:** accept environment-scoped OIDC sub for gated prod deploys (ADR-0043) Closes [#50](https://github.com/jaetill/meal-planner/issues/50) ([#89](https://github.com/jaetill/meal-planner/issues/89)) ([142d258](https://github.com/jaetill/meal-planner/commit/142d258deb4d788b96628c22d0e438f773c9af4d))
+* **iam:** add meal-planner-feedback to deploy-role lambda resources ([#92](https://github.com/jaetill/meal-planner/issues/92)) ([#101](https://github.com/jaetill/meal-planner/issues/101)) ([6469c86](https://github.com/jaetill/meal-planner/commit/6469c86fd9684ed08a6815262f8b3b1e125a7817))
+* **iam:** remove dead bucket ARN from object-level S3 statements ([#100](https://github.com/jaetill/meal-planner/issues/100)) ([0e502bf](https://github.com/jaetill/meal-planner/commit/0e502bf63cb89483cdbbf13407d63e099e1f4110)), closes [#48](https://github.com/jaetill/meal-planner/issues/48)
+* **logger:** recurse scrubFields into nested objects to prevent PII escaping to CloudWatch ([#74](https://github.com/jaetill/meal-planner/issues/74)) ([e4102d9](https://github.com/jaetill/meal-planner/commit/e4102d91228f2b7335e214f1d9982f8cf867f464))
+* **plan:** restore degree sign and em-dash encoding in plan.js (closes [#30](https://github.com/jaetill/meal-planner/issues/30)) ([#82](https://github.com/jaetill/meal-planner/issues/82)) ([bd60a33](https://github.com/jaetill/meal-planner/commit/bd60a335c648bf8b25f78b6121acb6b19c466c27))
+* **sentry:** iterate breadcrumbs.values instead of breadcrumbs (closes [#27](https://github.com/jaetill/meal-planner/issues/27)) ([#85](https://github.com/jaetill/meal-planner/issues/85)) ([59c621e](https://github.com/jaetill/meal-planner/commit/59c621e676481f2b88d6709f12146a82fdb00f36))
+* **terraform:** remove localhost from prod S3 CORS allowed_origins ([#139](https://github.com/jaetill/meal-planner/issues/139)) ([1eac73b](https://github.com/jaetill/meal-planner/commit/1eac73b6f665c92e35314d9ad7a874fd8c0e8907)), closes [#40](https://github.com/jaetill/meal-planner/issues/40)
+
 ## 1.0.0 (2026-05-26)
 
 
