@@ -12,9 +12,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  issues: write
   contents: write
+  issues: write
   id-token: write
 
 jobs:
