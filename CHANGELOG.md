@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/jaetill/meal-planner/compare/v1.1.0...v1.1.1) (2026-06-21)
+
+
+### Bug Fixes
+
+* **ci:** pin deploy.yml actions to commit SHAs (closes [#144](https://github.com/jaetill/meal-planner/issues/144)) ([#145](https://github.com/jaetill/meal-planner/issues/145)) ([4f386b8](https://github.com/jaetill/meal-planner/commit/4f386b8ef0ea4dd146c6274c730e4aa4bc94556d))
+* **iac:** require environment:production OIDC claim; drop master ref bypass (closes [#90](https://github.com/jaetill/meal-planner/issues/90)) ([#147](https://github.com/jaetill/meal-planner/issues/147)) ([b18acb5](https://github.com/jaetill/meal-planner/commit/b18acb502594b39f01ac61f90f70d2855220fce9))
+
 ## [1.1.0](https://github.com/jaetill/meal-planner/compare/v1.0.0...v1.1.0) (2026-06-18)
 
 
