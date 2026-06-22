@@ -22,6 +22,9 @@ data "aws_iam_policy_document" "lambda_trust" {
 
 # ── Execution roles ──────────────────────────────────────────────────────
 
+# noaws role is no longer assigned to any Lambda (issue #47 — replaced by
+# per-function roles below). Retained here to avoid destroying it while the
+# AWS console may still reference it; remove in a follow-up slice.
 resource "aws_iam_role" "noaws" {
   name               = "meal-planner-noaws-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
@@ -57,11 +60,16 @@ resource "aws_iam_role" "github_deploy" {
   })
 }
 
-# ── Inline policies on the noaws role ────────────────────────────────────
+# ── Per-function execution roles (issue #47 — replace bundled noaws role) ────
 
-resource "aws_iam_role_policy" "noaws_logs_only" {
-  name = "meal-planner-logs-only"
-  role = aws_iam_role.noaws.id
+resource "aws_iam_role" "nutrition_fn" {
+  name               = "meal-planner-nutrition-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
+
+resource "aws_iam_role_policy" "nutrition_fn_logs" {
+  name = "logs"
+  role = aws_iam_role.nutrition_fn.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -72,29 +80,122 @@ resource "aws_iam_role_policy" "noaws_logs_only" {
         Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
       },
       {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-nutrition:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "nutrition_fn_secrets" {
+  name = "secrets"
+  role = aws_iam_role.nutrition_fn.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
         Effect = "Allow"
-        Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Action = "secretsmanager:GetSecretValue"
+        # Transitional: old secret retained until Lambda code is deployed with new name.
+        # Remove aws_secretsmanager_secret.main.arn entry after verifying nutrition Lambda.
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-share:*",
+          aws_secretsmanager_secret.anthropic.arn,
+          aws_secretsmanager_secret.main.arn,
         ]
       }
     ]
   })
 }
 
-resource "aws_iam_role_policy" "noaws_secrets" {
-  name = "meal-planner-secrets-access"
-  role = aws_iam_role.noaws.id
+resource "aws_iam_role" "kroger_fn" {
+  name               = "meal-planner-kroger-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
+
+resource "aws_iam_role_policy" "kroger_fn_logs" {
+  name = "logs"
+  role = aws_iam_role.kroger_fn.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
-        Action   = "secretsmanager:GetSecretValue"
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:meal-planner/secrets-WnfBUU"
+        Action   = "logs:CreateLogGroup"
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-kroger:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "kroger_fn_secrets" {
+  name = "secrets"
+  role = aws_iam_role.kroger_fn.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "secretsmanager:GetSecretValue"
+        # Transitional: remove aws_secretsmanager_secret.main.arn after kroger Lambda is deployed.
+        Resource = [
+          aws_secretsmanager_secret.kroger_secret.arn,
+          aws_secretsmanager_secret.main.arn,
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "share_fn" {
+  name               = "meal-planner-share-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
+
+resource "aws_iam_role_policy" "share_fn_logs" {
+  name = "logs"
+  role = aws_iam_role.share_fn.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "logs:CreateLogGroup"
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-share:*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "share_fn_secrets" {
+  name = "secrets"
+  role = aws_iam_role.share_fn.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "secretsmanager:GetSecretValue"
+        # Transitional: remove aws_secretsmanager_secret.main.arn after share Lambda is deployed.
+        Resource = [
+          aws_secretsmanager_secret.postmark.arn,
+          aws_secretsmanager_secret.main.arn,
+        ]
       }
     ]
   })
@@ -126,9 +227,14 @@ resource "aws_iam_role_policy" "save_secrets" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = "secretsmanager:GetSecretValue"
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:meal-planner/secrets-WnfBUU"
+        Effect = "Allow"
+        Action = "secretsmanager:GetSecretValue"
+        # Scoped to anthropic only (issue #47). Transitional access to old secret
+        # retained until save + plan Lambda code is deployed with new secret name.
+        Resource = [
+          aws_secretsmanager_secret.anthropic.arn,
+          aws_secretsmanager_secret.main.arn,
+        ]
       }
     ]
   })

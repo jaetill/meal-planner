@@ -3,8 +3,33 @@
 # Secret values are NOT managed by Terraform — only the secret container.
 # Rotate values via aws secretsmanager update-secret in operations runbooks.
 
+# ── Legacy bundled secret (deprecated — retire after migration to per-service secrets) ──
 resource "aws_secretsmanager_secret" "main" {
   name = "meal-planner/secrets"
+}
+
+# ── Per-service secrets (issue #47 — least-privilege isolation) ──────────────
+# Populate values before running `tofu apply` that updates Lambda role assignments:
+#   aws secretsmanager put-secret-value --secret-id meal-planner/anthropic \
+#     --secret-string '{"ANTHROPIC_API_KEY":"...","USDA_API_KEY":"..."}'
+#   aws secretsmanager put-secret-value --secret-id meal-planner/kroger \
+#     --secret-string '{"KROGER_CLIENT_ID":"...","KROGER_CLIENT_SECRET":"..."}'
+#   aws secretsmanager put-secret-value --secret-id meal-planner/postmark \
+#     --secret-string '{"POSTMARK_API_KEY":"..."}'
+
+resource "aws_secretsmanager_secret" "anthropic" {
+  name        = "meal-planner/anthropic"
+  description = "Anthropic + USDA API keys — nutrition, save, plan lambdas"
+}
+
+resource "aws_secretsmanager_secret" "kroger_secret" {
+  name        = "meal-planner/kroger"
+  description = "Kroger API client credentials — kroger lambda"
+}
+
+resource "aws_secretsmanager_secret" "postmark" {
+  name        = "meal-planner/postmark"
+  description = "Postmark API key — share lambda"
 }
 
 # ============================================================================

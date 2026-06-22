@@ -4,7 +4,7 @@
 //   POST /cook   — read/write cook session at cook-sessions/{userId}.json
 //
 // Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
-// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/anthropic)
 
 const { Sentry } = require('./lib/sentry');
 
@@ -17,7 +17,7 @@ const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 let _secrets;
 async function getSecrets() {
   if (!_secrets) {
-    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/anthropic' }));
     _secrets = JSON.parse(res.SecretString);
   }
   return _secrets;
