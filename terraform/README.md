@@ -104,13 +104,33 @@ aws apigatewayv2 get-integrations --api-id dmtezcygeb
 # 2 AWS_PROXY integrations to the above Lambdas
 ```
 
-The other 5 Lambdas (share, alexa, groups, save, plan) are not exposed
-through this API. They may be invoked via:
-- Function URLs (check `aws lambda get-function-url-config --function-name <name>`)
-- Alexa skill (meal-planner-alexa specifically)
-- Direct SDK invocation from the frontend
+The remaining Lambdas are **not** on this HTTP API. `meal-planner-alexa` is
+invoked by the Alexa service directly. The other four (share, groups,
+MealPlannerSave, plan) are served by a separate REST API — see Slice 4b.
 
-Inventory invocation paths before this slice.
+### Slice 4b — API Gateway REST API (ID `e2h43o5aje`, prod stage)
+
+This is the authenticated API used by the frontend for all write operations
+and group management. The Cognito authorizer (`o0c2k9`) protects every route.
+
+```sh
+# Inspect existing resources before authoring Terraform
+aws apigateway get-rest-apis --query "items[?id=='e2h43o5aje']"
+aws apigateway get-resources --rest-api-id e2h43o5aje
+aws apigateway get-stages --rest-api-id e2h43o5aje
+aws apigateway get-authorizers --rest-api-id e2h43o5aje
+# Routes: POST /save, POST /import, POST /cook (→ MealPlannerSave)
+#         GET /groups, POST /groups (→ meal-planner-groups)
+#         POST /share (→ meal-planner-share)
+#         POST /plan  (→ meal-planner-plan)
+# Authorizer: Cognito (o0c2k9)
+```
+
+Resources to import: `aws_api_gateway_rest_api`, `aws_api_gateway_stage`,
+`aws_api_gateway_authorizer`, one `aws_api_gateway_resource` +
+`aws_api_gateway_method` + `aws_api_gateway_integration` per route.
+
+After applying, `tofu plan` should show 0 changes for all REST API resources.
 
 ### Slice 5 — Secrets Manager + CloudWatch log groups
 
