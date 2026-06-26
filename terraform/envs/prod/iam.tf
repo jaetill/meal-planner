@@ -149,9 +149,12 @@ resource "aws_iam_role_policy" "github_deploy" {
         Resource = "arn:aws:s3:::jaetill-meal-planner"
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:PutObject", "s3:GetObject"]
-        Resource = "arn:aws:s3:::jaetill-meal-planner/*"
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:GetObject"]
+        Resource = [
+          "arn:aws:s3:::jaetill-meal-planner/*.html",
+          "arn:aws:s3:::jaetill-meal-planner/assets/*",
+        ]
       },
       {
         Effect   = "Allow"
