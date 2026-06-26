@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/jaetill/meal-planner/compare/v1.1.1...v1.1.2) (2026-06-26)
+
+
+### Bug Fixes
+
+* **ci:** drop unused IMPLEMENTER_PAT forwarding from implementer caller (refs [#363](https://github.com/jaetill/meal-planner/issues/363)) ([#151](https://github.com/jaetill/meal-planner/issues/151)) ([261de4d](https://github.com/jaetill/meal-planner/commit/261de4dd3db0b256bde93252fb7f3ed0a00e6196))
+
 ## [1.1.1](https://github.com/jaetill/meal-planner/compare/v1.1.0...v1.1.1) (2026-06-21)
 
 
