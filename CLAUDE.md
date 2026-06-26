@@ -60,19 +60,19 @@ Each file is bundled with `lambda/lib/` and `lambda/node_modules/` into a zip by
 
 | File | Function name | Secrets / env vars |
 |---|---|---|
-| `save.js` | `MealPlannerSave` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
+| `save.js` | `MealPlannerSave` | SM: `meal-planner/anthropic` (`ANTHROPIC_API_KEY`) |
 | `groups.js` | `meal-planner-groups` | — |
-| `nutrition.js` | `meal-planner-nutrition` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`, `USDA_API_KEY`) |
-| `kroger.js` | `meal-planner-kroger` | SM: `meal-planner/secrets` (`KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET`) |
+| `nutrition.js` | `meal-planner-nutrition` | SM: `meal-planner/anthropic` (`ANTHROPIC_API_KEY`, `USDA_API_KEY`) |
+| `kroger.js` | `meal-planner-kroger` | SM: `meal-planner/kroger` (`KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET`) |
 | `alexa.js` | `meal-planner-alexa` | env: `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
-| `share.js` | `meal-planner-share` | SM: `meal-planner/secrets` (`POSTMARK_API_KEY`); env: `FROM_EMAIL` |
-| `plan.js` | `meal-planner-plan` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
+| `share.js` | `meal-planner-share` | SM: `meal-planner/postmark` (`POSTMARK_API_KEY`); env: `FROM_EMAIL` |
+| `plan.js` | `meal-planner-plan` | SM: `meal-planner/anthropic` (`ANTHROPIC_API_KEY`) |
 
 **Shared Sentry env vars (all Lambdas):** `SENTRY_DSN`, `DEPLOY_ENV`, `RELEASE_VERSION`,
 `LOG_LEVEL` — set out-of-band via `aws lambda update-function-configuration`. When
 `SENTRY_DSN` is unset, Sentry init is a no-op (safe for initial onboarding).
 
-**Secrets Manager:** All API keys are in `meal-planner/secrets` (us-east-2).
+**Secrets Manager:** API keys are split into per-service secrets (us-east-2): `meal-planner/anthropic`, `meal-planner/kroger`, `meal-planner/postmark`. Legacy `meal-planner/secrets` retained during migration.
 Secrets are cached in Lambda module scope — fetched once per cold start (~50-100ms),
 reused across warm invocations.
 

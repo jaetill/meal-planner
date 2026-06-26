@@ -5,12 +5,14 @@
 # deploys in .github/workflows/deploy.yml.
 #
 # Roles defined in iam.tf:
-#   - aws_iam_role.noaws : meal-planner-noaws-role (share, nutrition, kroger)
-#   - aws_iam_role.save  : MealPlannerSave-role-c47ma2hi (groups, alexa, plan, save)
+#   - aws_iam_role.nutrition_fn : meal-planner-nutrition-role (nutrition)
+#   - aws_iam_role.kroger_fn    : meal-planner-kroger-role (kroger)
+#   - aws_iam_role.share_fn     : meal-planner-share-role (share)
+#   - aws_iam_role.save         : MealPlannerSave-role-c47ma2hi (groups, alexa, plan, save)
 
 resource "aws_lambda_function" "share" {
   function_name = "meal-planner-share"
-  role          = aws_iam_role.noaws.arn
+  role          = aws_iam_role.share_fn.arn
   handler       = "share.handler"
   runtime       = "nodejs22.x"
   architectures = ["x86_64"]
@@ -32,7 +34,7 @@ resource "aws_lambda_function" "share" {
 
 resource "aws_lambda_function" "nutrition" {
   function_name = "meal-planner-nutrition"
-  role          = aws_iam_role.noaws.arn
+  role          = aws_iam_role.nutrition_fn.arn
   handler       = "nutrition.handler"
   runtime       = "nodejs22.x"
   architectures = ["x86_64"]
@@ -52,7 +54,7 @@ resource "aws_lambda_function" "nutrition" {
 
 resource "aws_lambda_function" "kroger" {
   function_name = "meal-planner-kroger"
-  role          = aws_iam_role.noaws.arn
+  role          = aws_iam_role.kroger_fn.arn
   handler       = "kroger.handler"
   runtime       = "nodejs22.x"
   architectures = ["x86_64"]

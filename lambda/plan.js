@@ -2,7 +2,7 @@
 //   POST /plan — generate or refine a weekly meal plan using Claude
 //
 // Auth: Cognito authorizer — userId from event.requestContext.authorizer.claims['cognito:username']
-// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+// Secrets: ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/anthropic)
 // S3 paths read: groups/{groupId}/recipes.json
 
 'use strict';
@@ -20,7 +20,7 @@ const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 let _secrets;
 async function getSecrets() {
   if (!_secrets) {
-    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/anthropic' }));
     _secrets = JSON.parse(res.SecretString);
   }
   return _secrets;

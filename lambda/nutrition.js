@@ -5,7 +5,7 @@
 // 3. Scales per-100g nutrients to the actual quantity
 // 4. Falls back to Claude for full estimation if USDA has no match
 //
-// Secrets: USDA_API_KEY, ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+// Secrets: USDA_API_KEY, ANTHROPIC_API_KEY from AWS Secrets Manager (meal-planner/anthropic)
 
 'use strict';
 
@@ -19,7 +19,7 @@ const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 let _secrets;
 async function getSecrets() {
   if (!_secrets) {
-    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/anthropic' }));
     _secrets = JSON.parse(res.SecretString);
   }
   return _secrets;

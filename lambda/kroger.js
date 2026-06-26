@@ -1,7 +1,7 @@
 // Lambda: GET /locations?zip=<zip>          â€” find nearby Kroger/Harris Teeter stores
 //         GET /products?q=<term>&locationId=<id> â€” search products with prices
 //
-// Secrets: KROGER_CLIENT_ID, KROGER_CLIENT_SECRET from AWS Secrets Manager (meal-planner/secrets)
+// Secrets: KROGER_CLIENT_ID, KROGER_CLIENT_SECRET from AWS Secrets Manager (meal-planner/kroger)
 
 'use strict';
 
@@ -15,7 +15,7 @@ const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 let _secrets;
 async function getSecrets() {
   if (!_secrets) {
-    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/kroger' }));
     _secrets = JSON.parse(res.SecretString);
   }
   return _secrets;

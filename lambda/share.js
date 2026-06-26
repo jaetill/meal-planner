@@ -1,5 +1,5 @@
 // meal-planner-share Lambda
-// Secrets: POSTMARK_API_KEY from AWS Secrets Manager (meal-planner/secrets)
+// Secrets: POSTMARK_API_KEY from AWS Secrets Manager (meal-planner/postmark)
 // Env vars: FROM_EMAIL (default: jason@jaetill.com)
 // API Gateway must have a Cognito authorizer so claims are present.
 
@@ -14,7 +14,7 @@ const smClient = new SecretsManagerClient({ region: 'us-east-2' });
 let _secrets;
 async function getSecrets() {
   if (!_secrets) {
-    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/secrets' }));
+    const res = await smClient.send(new GetSecretValueCommand({ SecretId: 'meal-planner/postmark' }));
     _secrets = JSON.parse(res.SecretString);
   }
   return _secrets;
