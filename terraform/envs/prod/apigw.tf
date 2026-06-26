@@ -12,7 +12,7 @@ resource "aws_api_gateway_authorizer" "mp_rest_cognitoauth" {
   name            = "CognitoAuth"
   rest_api_id     = aws_api_gateway_rest_api.mp_rest.id
   type            = "COGNITO_USER_POOLS"
-  provider_arns   = ["arn:aws:cognito-idp:us-east-2:214599503944:userpool/us-east-2_xneeJzaDJ"]
+  provider_arns   = ["arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/us-east-2_xneeJzaDJ"]
   identity_source = "method.request.header.Authorization"
 }
 
@@ -36,7 +36,7 @@ resource "aws_api_gateway_integration" "mp_rest_groups_get" {
   resource_id = aws_api_gateway_resource.mp_rest_groups.id
   http_method = aws_api_gateway_method.mp_rest_groups_get.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:meal-planner-groups/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-groups/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -105,7 +105,7 @@ resource "aws_api_gateway_integration" "mp_rest_groups_post" {
   resource_id = aws_api_gateway_resource.mp_rest_groups.id
   http_method = aws_api_gateway_method.mp_rest_groups_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:meal-planner-groups/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-groups/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -180,7 +180,7 @@ resource "aws_api_gateway_integration" "mp_rest_import_post" {
   resource_id = aws_api_gateway_resource.mp_rest_import.id
   http_method = aws_api_gateway_method.mp_rest_import_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:MealPlannerSave/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:MealPlannerSave/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -255,7 +255,7 @@ resource "aws_api_gateway_integration" "mp_rest_share_post" {
   resource_id = aws_api_gateway_resource.mp_rest_share.id
   http_method = aws_api_gateway_method.mp_rest_share_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:meal-planner-share/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-share/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -330,7 +330,7 @@ resource "aws_api_gateway_integration" "mp_rest_save_post" {
   resource_id = aws_api_gateway_resource.mp_rest_save.id
   http_method = aws_api_gateway_method.mp_rest_save_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:MealPlannerSave/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:MealPlannerSave/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -405,7 +405,7 @@ resource "aws_api_gateway_integration" "mp_rest_cook_post" {
   resource_id = aws_api_gateway_resource.mp_rest_cook.id
   http_method = aws_api_gateway_method.mp_rest_cook_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:MealPlannerSave/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:MealPlannerSave/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -480,7 +480,7 @@ resource "aws_api_gateway_integration" "mp_rest_plan_post" {
   resource_id = aws_api_gateway_resource.mp_rest_plan.id
   http_method = aws_api_gateway_method.mp_rest_plan_post.http_method
   type        = "AWS_PROXY"
-  uri                     = "arn:aws:apigateway:us-east-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-2:214599503944:function:meal-planner-plan/invocations"
+  uri                     = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-plan/invocations"
   integration_http_method = "POST"
   passthrough_behavior    = "WHEN_NO_MATCH"
   timeout_milliseconds    = 29000
@@ -524,7 +524,7 @@ resource "aws_apigatewayv2_integration" "mp_http_kroger" {
   api_id                 = aws_apigatewayv2_api.mp_http.id
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
-  integration_uri        = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-kroger"
+  integration_uri        = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-kroger"
   payload_format_version = "2.0"
 }
 
@@ -532,7 +532,7 @@ resource "aws_apigatewayv2_integration" "mp_http_nutrition" {
   api_id                 = aws_apigatewayv2_api.mp_http.id
   integration_type       = "AWS_PROXY"
   integration_method     = "POST"
-  integration_uri        = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-nutrition/invocations"
+  integration_uri        = "arn:aws:apigateway:${var.aws_region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-nutrition/invocations"
   payload_format_version = "2.0"
 }
 
@@ -563,7 +563,7 @@ resource "aws_lambda_permission" "apigw_kroger_http" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.kroger.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.mp_http.id}/*"
 }
 
 resource "aws_lambda_permission" "apigw_nutrition_http" {
@@ -571,7 +571,7 @@ resource "aws_lambda_permission" "apigw_nutrition_http" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.nutrition.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/nutrition"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/nutrition"
 }
 
 resource "aws_lambda_permission" "apigw_groups" {
@@ -579,7 +579,7 @@ resource "aws_lambda_permission" "apigw_groups" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.groups.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/*/groups"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/*/groups"
 }
 
 resource "aws_lambda_permission" "apigw_share" {
@@ -587,7 +587,7 @@ resource "aws_lambda_permission" "apigw_share" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.share.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/share"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/share"
 }
 
 resource "aws_lambda_permission" "apigw_save_save" {
@@ -595,7 +595,7 @@ resource "aws_lambda_permission" "apigw_save_save" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.save.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/save"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/save"
 }
 
 resource "aws_lambda_permission" "apigw_save_import" {
@@ -603,7 +603,7 @@ resource "aws_lambda_permission" "apigw_save_import" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.save.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/import"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/import"
 }
 
 resource "aws_lambda_permission" "apigw_save_cook" {
@@ -611,7 +611,7 @@ resource "aws_lambda_permission" "apigw_save_cook" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.save.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/cook"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/cook"
 }
 
 resource "aws_lambda_permission" "apigw_plan" {
@@ -619,7 +619,7 @@ resource "aws_lambda_permission" "apigw_plan" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.plan.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/plan"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.mp_rest.id}/*/POST/plan"
 }
 
 # ── feedback endpoint (HTTP API, unauthenticated) ─────────────────────────
@@ -649,5 +649,5 @@ resource "aws_lambda_permission" "apigw_feedback" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.feedback.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/feedback"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/feedback"
 }

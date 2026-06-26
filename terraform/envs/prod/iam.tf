@@ -44,7 +44,7 @@ resource "aws_iam_role" "github_deploy" {
     Statement = [
       {
         Effect    = "Allow"
-        Principal = { Federated = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com" }
+        Principal = { Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com" }
         Action    = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
@@ -69,15 +69,15 @@ resource "aws_iam_role_policy" "noaws_logs_only" {
       {
         Effect   = "Allow"
         Action   = "logs:CreateLogGroup"
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
       },
       {
         Effect = "Allow"
         Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-share:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-share:*",
         ]
       }
     ]
@@ -94,7 +94,7 @@ resource "aws_iam_role_policy" "noaws_secrets" {
       {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:meal-planner/secrets-WnfBUU"
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:meal-planner/secrets-WnfBUU"
       }
     ]
   })
@@ -128,7 +128,7 @@ resource "aws_iam_role_policy" "save_secrets" {
       {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:meal-planner/secrets-WnfBUU"
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:meal-planner/secrets-WnfBUU"
       }
     ]
   })
@@ -156,7 +156,7 @@ resource "aws_iam_role_policy" "github_deploy" {
       {
         Effect   = "Allow"
         Action   = "cloudfront:CreateInvalidation"
-        Resource = "arn:aws:cloudfront::${var.aws_account_id}:distribution/E301SUJKLJO7A7"
+        Resource = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/E301SUJKLJO7A7"
       },
       {
         Effect = "Allow"
@@ -167,14 +167,14 @@ resource "aws_iam_role_policy" "github_deploy" {
           "lambda:UpdateFunctionConfiguration",
         ]
         Resource = [
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:MealPlannerSave",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-alexa",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-groups",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-nutrition",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-kroger",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-share",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-plan",
-          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-feedback",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:MealPlannerSave",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-alexa",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-groups",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-nutrition",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-kroger",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-share",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-plan",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:meal-planner-feedback",
         ]
       }
     ]
@@ -195,19 +195,19 @@ resource "aws_iam_policy" "save_basic_exec" {
       {
         Effect   = "Allow"
         Action   = "logs:CreateLogGroup"
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
       },
       {
         Effect = "Allow"
         Action = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/MealPlannerSave:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-groups:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-alexa:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-share:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-plan:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/MealPlannerSave:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-groups:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-alexa:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-share:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-plan:*",
         ]
       }
     ]
@@ -237,12 +237,12 @@ resource "aws_iam_role_policy" "feedback_logs" {
       {
         Effect   = "Allow"
         Action   = "logs:CreateLogGroup"
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
       },
       {
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-feedback:*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/meal-planner-feedback:*"
       }
     ]
   })

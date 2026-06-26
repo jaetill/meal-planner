@@ -16,12 +16,6 @@ variable "aws_region" {
   default     = "us-east-2"
 }
 
-variable "aws_account_id" {
-  type        = string
-  description = "AWS account ID."
-  default     = "214599503944"
-}
-
 variable "cloudfront_acm_cert_arn" {
   type        = string
   description = "ACM certificate ARN for meals.jaetill.com (must be in us-east-1 for CloudFront)."
