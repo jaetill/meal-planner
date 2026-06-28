@@ -15,8 +15,10 @@
 const { Sentry } = require('./lib/sentry');
 const logger = require('./lib/logger');
 const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const REGION = process.env.AWS_REGION || 'us-east-2';
+const BUCKET = 'jaetill-meal-planner';
 const REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'jaetill';
 const REPO_NAME = process.env.GITHUB_REPO_NAME || 'meal-planner';
 const SECRET_ID = process.env.GITHUB_SECRET_ID || 'meal-planner/github-token';
@@ -112,6 +114,7 @@ function respond(status, body, headers) {
 
 function createHandler(deps = {}) {
   const smClient = deps.smClient || new SecretsManagerClient({ region: REGION });
+  const s3Client = deps.s3Client || new S3Client({ region: REGION });
   const checkRateLimit = deps.checkRateLimit || makeRateLimiter();
 
   let _secrets;
@@ -184,7 +187,6 @@ function createHandler(deps = {}) {
       '## Context',
       body.page_url && isSafePageUrl(body.page_url) ? `- Page: ${escapeMarkdown(body.page_url)}` : null,
       body.user_agent ? `- UA: ${escapeMarkdown(body.user_agent)}` : null,
-      body.email ? `- Email: ${escapeMarkdown(body.email)}` : null,
       `- Source IP: ${ip}`,
       `- Lambda request: ${context?.awsRequestId || 'unknown'}`,
       '',
@@ -214,6 +216,22 @@ function createHandler(deps = {}) {
         request_id: context?.awsRequestId,
         id, type: body.type, issue_number: result.data.number,
       });
+
+      if (body.email) {
+        try {
+          await s3Client.send(new PutObjectCommand({
+            Bucket: BUCKET,
+            Key: `feedback-contacts/${result.data.number}.json`,
+            Body: JSON.stringify({ email: body.email, feedback_id: id, issue_number: result.data.number }),
+            ContentType: 'application/json',
+            CacheControl: 'no-cache, no-store, must-revalidate',
+          }));
+        } catch (s3Err) {
+          logger.warn('feedback.email_s3_failed', { request_id: context?.awsRequestId, error: s3Err.message });
+          Sentry.captureException(s3Err);
+        }
+      }
+
       return respond(201, { id, status: 'received' }, CORS);
     } catch (err) {
       logger.error('feedback.github_failed', {
