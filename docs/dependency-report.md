@@ -1,68 +1,67 @@
-## Dependency Watch (2026-07-06)
+## Dependency Watch (2026-07-13)
 
 ---
 
-### `package.json` (root — frontend / dev toolchain)
+### `package.json` (root — frontend / build tooling)
 
-#### HIGH — Security Advisories (action recommended)
+#### HIGH — Security Advisory (fix immediately)
 
-| Package | Installed range | Fix version | Advisory |
-|---------|----------------|-------------|----------|
-| `vite` | `^8.0.0` (resolves to 8.0.0–8.0.15) | ≥ 8.0.16 | [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff): `server.fs.deny` bypass via Windows alternate paths (HIGH, CWE-22/200) |
-| `vite` | same | ≥ 8.0.16 | [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3): NTLMv2 hash disclosure via UNC path in `launch-editor` (MODERATE) |
+| Package | Installed | Advisory | CVE/GHSA |
+|---------|-----------|----------|----------|
+| `vite` (direct devDep) | ^8.0.0 (8.0.0–8.0.15) | `server.fs.deny` bypass via Windows alternate paths — **file read outside root** | [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) |
+| `vite` (direct devDep) | ^8.0.0 (8.0.0–8.0.15) | NTLMv2 hash disclosure via UNC path handling (launch-editor) | [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) |
 
-**Recommendation:** Run `npm install vite@latest` (or pin to `^8.0.16`) to pick up the patch. Both advisories affect the dev server on Windows; CI/deployment risk is low, but the HIGH rating warrants a prompt patch.
+**Context:** Both advisories are Windows-specific and affect the Vite dev server only — not the deployed production build. Nevertheless severity is HIGH; fix by running `npm audit fix` in the repo root (stays within the `^8.0.0` semver range).
 
-#### LOW — Security Advisories (dev toolchain only)
+#### LOW — Security Advisory (batch fix)
 
-| Package | Installed range | Advisory |
-|---------|----------------|----------|
-| `esbuild` | 0.27.3–0.28.0 (transitive via vite) | [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr): arbitrary file read on Windows dev server (LOW, CVSS 2.5). Resolved by updating `vite` above. |
+| Package | Installed | Advisory | CVE/GHSA |
+|---------|-----------|----------|----------|
+| `esbuild` (transitive via vite) | 0.27.3–0.28.0 | Arbitrary file read on Windows dev server | [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr) |
 
-#### Minor/patch — no security impact
+**Context:** Windows dev server only. Resolved by the same `npm audit fix` that updates vite.
 
-| Package | Declared range | Wanted (in-range latest) | Registry latest |
-|---------|---------------|--------------------------|-----------------|
-| `@tailwindcss/vite` | `^4.2.1` | 4.3.2 | 4.3.2 |
-| `tailwindcss` | `^4.2.1` | 4.3.2 | 4.3.2 |
+#### Minor / patch updates (low priority — monthly sweep)
 
-These are within their declared semver range; no action required this cycle. Batch with next monthly sweep if desired.
+| Package | Declared | Latest |
+|---------|----------|--------|
+| `tailwindcss` | ^4.2.1 | 4.3.2 |
+| `@tailwindcss/vite` | ^4.2.1 | 4.3.2 |
+
+Both are within the declared semver range; `npm update` will pick them up.
 
 ---
 
-### `lambda/package.json` (Lambda — production runtime)
+### `lambda/package.json` (Lambda functions)
 
-#### MODERATE — Security Advisory (requires major-version upgrade to fix)
+#### MODERATE — Security Advisory (fix soon — requires major bump)
 
-| Package | Installed range | Fix version | Advisory |
-|---------|----------------|-------------|----------|
-| `@sentry/aws-serverless` | `^9.0.0` (resolves to 9.47.1) | 10.63.0 (major) | [GHSA-8988-4f7v-96qf](https://github.com/advisories/GHSA-8988-4f7v-96qf): `@opentelemetry/core` unbounded memory allocation in W3C Baggage propagation (MODERATE, CVSS 5.3, CWE-770). Exploitable remotely with no auth — any inbound request carrying a crafted `baggage` header can grow Lambda memory unboundedly. |
+| Package | Root cause | Advisory | CVE/GHSA |
+|---------|-----------|----------|----------|
+| `@opentelemetry/core` (transitive via `@sentry/aws-serverless`) | Unbounded memory allocation in W3C Baggage propagation — **potential DoS** | 18 OTel packages affected; fix requires `@sentry/aws-serverless@>=10.0.0` | [GHSA-8988-4f7v-96qf](https://github.com/advisories/GHSA-8988-4f7v-96qf) |
 
-**Root cause:** `@sentry/aws-serverless` ≤ 9.47.1 bundles `@opentelemetry/core` < 2.8.0 via its `@sentry/node` → `@opentelemetry/*` instrumentation chain (18 affected transitive packages). The only available fix is `@sentry/aws-serverless@10.63.0`, which is a **major version bump (9 → 10)**.
+**Context:** All 18 vulnerable packages (`@opentelemetry/instrumentation-*`, `@opentelemetry/sdk-trace-base`, `@sentry/node`, etc.) share the same root cause. The fix is a **major** version upgrade of `@sentry/aws-serverless` from `^9` to `^10`. Review the [Sentry v10 migration guide](https://docs.sentry.io/platforms/javascript/guides/aws-lambda/migration/v9-to-v10/) before upgrading — Lambda handler wrapping API may have changed.
 
-**Recommendation:** Plan a Sentry v10 upgrade. Review the [Sentry v10 migration guide](https://docs.sentry.io/platforms/javascript/migration/v9-to-v10/) before updating — this affects all Lambda handlers (`save.js`, `groups.js`, `nutrition.js`, `kroger.js`, `alexa.js`, `share.js`, `plan.js`) that call `Sentry.wrapHandler()` via `lambda/lib/sentry.js`. The upgrade is not a one-liner but is bounded to `lib/sentry.js` if the wrapper API is stable.
+#### Major version bumps available (breaking-change risk — review before upgrading)
 
-#### Major version bump available (no security advisory)
+| Package | Current constraint | Latest | Notes |
+|---------|--------------------|--------|-------|
+| `@sentry/aws-serverless` | ^9.0.0 (9.47.1 installed) | **10.65.0** | Also resolves all 18 moderate advisories above. Major API changes; check `Sentry.wrapHandler()` compat in `lambda/lib/sentry.js`. |
+| `@octokit/rest` | ^21.0.0 (21.1.1 installed) | **22.0.1** | Check GitHub API client call sites across lambda handlers for renamed methods/changed pagination. |
 
-| Package | Installed range | Wanted (in-range) | Latest | Risk |
-|---------|---------------|-------------------|--------|------|
-| `@octokit/rest` | `^21.0.0` | 21.1.1 | **22.0.1** | Major — review [v22 changelog](https://github.com/octokit/rest.js/releases) for breaking changes before upgrading |
-| `@sentry/aws-serverless` | `^9.0.0` | 9.47.1 | **10.63.0** | Major — see security note above; security concern elevates priority |
+**Recommended action:** Upgrade `@sentry/aws-serverless` to `^10.65.0` first (resolves the moderate CVE chain). Treat `@octokit/rest` as a separate PR.
 
 ---
 
 ### Summary
 
-| Severity | Count | Packages |
-|----------|-------|---------|
-| HIGH (security) | 1 | `vite` (root) |
-| MODERATE (security, major-bump fix) | 1 | `@sentry/aws-serverless` (lambda) |
-| LOW (security, dev-only, auto-resolved) | 1 | `esbuild` (root, transitive) |
-| Major bump (no CVE) | 1 | `@octokit/rest` (lambda) |
-| Minor/patch | 2 | `@tailwindcss/vite`, `tailwindcss` (root) |
+| Manifest | CRITICAL | HIGH | MODERATE | LOW | Major bumps |
+|----------|----------|------|----------|-----|-------------|
+| `package.json` (root) | 0 | 1 | 0 | 1 | 0 |
+| `lambda/package.json` | 0 | 0 | 1* | 0 | 2 |
+
+\* One root cause (`@opentelemetry/core`) surfacing across 18 packages.
 
 **Immediate actions:**
-1. `vite` — patch to ≥ 8.0.16 (`npm install vite@latest` in root)
-2. `@sentry/aws-serverless` — schedule Sentry v10 upgrade sprint; track breaking-change review for `lambda/lib/sentry.js`
-
-**Next monthly sweep:** `@octokit/rest` v22, `@tailwindcss/vite`/`tailwindcss` latest.
+1. `npm audit fix` in repo root → resolves `vite` HIGH and `esbuild` LOW.
+2. Upgrade `lambda/` `@sentry/aws-serverless` `^9` → `^10.65.0` (with migration testing) → resolves all 18 moderate advisories.
