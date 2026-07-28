@@ -1,4 +1,13 @@
-import { recipes, mealPlans, saveMealPlans, saveRecipes, staples, saveStaples, aisleOrders, saveAisleOrders } from '../data/index.js';
+import {
+  recipes,
+  mealPlans,
+  saveMealPlans,
+  saveRecipes,
+  staples,
+  saveStaples,
+  aisleOrders,
+  saveAisleOrders,
+} from '../data/index.js';
 import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
@@ -35,7 +44,11 @@ function fmtDate(date) {
 
 function fmtDayHeading(dateKey) {
   const [y, m, d] = dateKey.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // ── Quantity math ──────────────────────────────────────────
@@ -55,7 +68,13 @@ function formatQty(num) {
   if (num === 0) return '';
   const whole = Math.floor(num);
   const frac = num - whole;
-  const fracs = [[0.25, '¼'], [0.333, '⅓'], [0.5, '½'], [0.667, '⅔'], [0.75, '¾']];
+  const fracs = [
+    [0.25, '¼'],
+    [0.333, '⅓'],
+    [0.5, '½'],
+    [0.667, '⅔'],
+    [0.75, '¾'],
+  ];
   for (const [val, sym] of fracs) {
     if (Math.abs(frac - val) < 0.02) return whole > 0 ? `${whole} ${sym}` : sym;
   }
@@ -68,14 +87,39 @@ function formatQty(num) {
 // Unit words that sometimes end up embedded at the start of ingredient names
 // due to import failures (e.g. "cloves crushed garlic" instead of name="garlic" unit="clove")
 const EMBEDDED_UNITS = {
-  cloves: 'clove', clove: 'clove', cups: 'cup', cup: 'cup',
-  tablespoons: 'tbsp', tablespoon: 'tbsp', teaspoons: 'tsp', teaspoon: 'tsp',
-  ounces: 'oz', ounce: 'oz', pounds: 'lb', pound: 'lb', lbs: 'lb',
-  grams: 'g', gram: 'g', cans: 'can', can: 'can',
-  packages: 'pkg', package: 'pkg', slices: 'slice', slice: 'slice',
-  pieces: 'piece', piece: 'piece', sprigs: 'sprig', sprig: 'sprig',
-  bunches: 'bunch', bunch: 'bunch', stalks: 'stalk', stalk: 'stalk',
-  heads: 'head', head: 'head', pinches: 'pinch', pinch: 'pinch',
+  cloves: 'clove',
+  clove: 'clove',
+  cups: 'cup',
+  cup: 'cup',
+  tablespoons: 'tbsp',
+  tablespoon: 'tbsp',
+  teaspoons: 'tsp',
+  teaspoon: 'tsp',
+  ounces: 'oz',
+  ounce: 'oz',
+  pounds: 'lb',
+  pound: 'lb',
+  lbs: 'lb',
+  grams: 'g',
+  gram: 'g',
+  cans: 'can',
+  can: 'can',
+  packages: 'pkg',
+  package: 'pkg',
+  slices: 'slice',
+  slice: 'slice',
+  pieces: 'piece',
+  piece: 'piece',
+  sprigs: 'sprig',
+  sprig: 'sprig',
+  bunches: 'bunch',
+  bunch: 'bunch',
+  stalks: 'stalk',
+  stalk: 'stalk',
+  heads: 'head',
+  head: 'head',
+  pinches: 'pinch',
+  pinch: 'pinch',
 };
 
 function normalizeIngredient(name, unit) {
@@ -89,7 +133,7 @@ function normalizeIngredient(name, unit) {
 }
 
 function buildGroceryList(dateKeys, defaultServings) {
-  const rangeEntries = mealPlans.filter(e => dateKeys.includes(e.date));
+  const rangeEntries = mealPlans.filter((e) => dateKeys.includes(e.date));
 
   // key: "name|unit" → aggregated item
   const map = new Map();
@@ -98,35 +142,36 @@ function buildGroceryList(dateKeys, defaultServings) {
     // Plain items (no recipe, just a text label like "filet mignon")
     if (entry.plainText) {
       const name = entry.plainText;
-      const key  = `${name.toLowerCase().trim()}|`;
+      const key = `${name.toLowerCase().trim()}|`;
       if (!map.has(key)) {
         map.set(key, { name, unit: '', preparation: '', section: '', totalQty: 0, rawQty: '' });
       }
       continue;
     }
 
-    const recipe = recipes.find(r => r.id === entry.recipeId);
+    const recipe = recipes.find((r) => r.id === entry.recipeId);
     if (!recipe) continue;
 
     const desired = entry.servings ?? defaultServings;
-    const scale   = desired / (recipe.servings || 1);
+    const scale = desired / (recipe.servings || 1);
 
-    for (const ing of (recipe.ingredients || [])) {
+    for (const ing of recipe.ingredients || []) {
       if (!ing.quantity && !ing.unit) continue; // skip group header rows
 
       const { name, unit } = normalizeIngredient(ing.name, ing.unit || '');
-      const key       = `${name.toLowerCase().trim()}|${unit.toLowerCase().trim()}`;
+      const key = `${name.toLowerCase().trim()}|${unit.toLowerCase().trim()}`;
       const scaledQty = parseQty(ing.quantity) * scale;
 
       if (map.has(key)) {
         map.get(key).totalQty += scaledQty;
       } else {
         map.set(key, {
-          name, unit,
+          name,
+          unit,
           preparation: ing.preparation || '',
-          section:     ing.section || '',
-          totalQty:    scaledQty,
-          rawQty:      ing.quantity || '',
+          section: ing.section || '',
+          totalQty: scaledQty,
+          rawQty: ing.quantity || '',
         });
       }
     }
@@ -153,8 +198,18 @@ function makeServingsStepper(initial, onChange) {
   const plus = btn('+', 'secondary');
   plus.className = 'w-7 h-7 p-0 text-center text-sm leading-none';
 
-  minus.onclick = () => { if (value > 1) { value--; display.textContent = value; onChange(value); } };
-  plus.onclick  = () => { value++; display.textContent = value; onChange(value); };
+  minus.onclick = () => {
+    if (value > 1) {
+      value--;
+      display.textContent = value;
+      onChange(value);
+    }
+  };
+  plus.onclick = () => {
+    value++;
+    display.textContent = value;
+    onChange(value);
+  };
 
   wrap.appendChild(minus);
   wrap.appendChild(display);
@@ -191,7 +246,7 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
   // ── Date range ────────────────────────────────────────
   let draftStart = new Date(startDate);
-  let draftEnd   = new Date(endDate);
+  let draftEnd = new Date(endDate);
 
   const dateSection = document.createElement('div');
   const dateLabel = document.createElement('div');
@@ -251,7 +306,7 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   const defaultDesc = document.createElement('span');
   defaultDesc.className = 'text-sm text-gray-600';
   defaultDesc.textContent = 'Cook for how many people?';
-  const defaultStepper = makeServingsStepper(draftDefault, v => {
+  const defaultStepper = makeServingsStepper(draftDefault, (v) => {
     draftDefault = v;
     refreshMealRows(); // update any rows still showing the default
   });
@@ -280,9 +335,13 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
     const keys = [];
     const d = new Date(draftStart);
-    while (d <= draftEnd) { keys.push(toDateKey(d)); d.setDate(d.getDate() + 1); }
+    while (d <= draftEnd) {
+      keys.push(toDateKey(d));
+      d.setDate(d.getDate() + 1);
+    }
 
-    const entries = mealPlans.filter(e => keys.includes(e.date))
+    const entries = mealPlans
+      .filter((e) => keys.includes(e.date))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (entries.length === 0) {
@@ -295,7 +354,7 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
     let lastDate = null;
     for (const entry of entries) {
-      const recipe = recipes.find(r => r.id === entry.recipeId);
+      const recipe = recipes.find((r) => r.id === entry.recipeId);
 
       if (entry.date !== lastDate) {
         lastDate = entry.date;
@@ -316,7 +375,7 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
         ? draftServings.get(entry.id)
         : (entry.servings ?? draftDefault);
 
-      const stepper = makeServingsStepper(currentServings, v => {
+      const stepper = makeServingsStepper(currentServings, (v) => {
         draftServings.set(entry.id, v);
       });
       // Ensure map is seeded even if user never touches the stepper
@@ -359,7 +418,10 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
       const changeBtn = btn('Change', 'secondary');
       changeBtn.className += ' text-xs py-1 px-2';
-      changeBtn.onclick = () => { selectedStore = null; renderStoreDisplay(); };
+      changeBtn.onclick = () => {
+        selectedStore = null;
+        renderStoreDisplay();
+      };
 
       const nameWrap = document.createElement('span');
       nameWrap.appendChild(nameEl);
@@ -389,7 +451,10 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
     async function doSearch() {
       const zip = zipInput.value.trim();
-      if (!/^\d{5}$/.test(zip)) { resultsList.innerHTML = '<p class="text-xs text-red-500">Enter a 5-digit ZIP.</p>'; return; }
+      if (!/^\d{5}$/.test(zip)) {
+        resultsList.innerHTML = '<p class="text-xs text-red-500">Enter a 5-digit ZIP.</p>';
+        return;
+      }
       localStorage.setItem('krogerZip', zip);
       searchBtn.disabled = true;
       searchBtn.textContent = 'Searching…';
@@ -405,15 +470,16 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
         for (const store of stores) {
           const storeBtn = document.createElement('button');
           storeBtn.type = 'button';
-          storeBtn.className = 'w-full text-left text-sm px-3 py-2 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors';
+          storeBtn.className =
+            'w-full text-left text-sm px-3 py-2 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors';
           const displayName = store.name.replace(/^(Kroger|Harris Teeter)\s*-\s*/i, '');
           storeBtn.innerHTML = `<span class="font-medium text-gray-800">${displayName}</span><span class="text-xs text-gray-400 ml-2">${store.address?.city}, ${store.address?.state}</span>`;
           storeBtn.onclick = () => {
             selectedStore = {
               locationId: store.locationId,
-              name:       store.name,
-              city:       store.address?.city || '',
-              state:      store.address?.state || '',
+              name: store.name,
+              city: store.address?.city || '',
+              state: store.address?.state || '',
             };
             saveStore(selectedStore);
             renderStoreDisplay();
@@ -423,12 +489,15 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
       } catch {
         searchBtn.disabled = false;
         searchBtn.textContent = 'Find stores';
-        resultsList.innerHTML = '<p class="text-xs text-red-500">Could not load stores. Try again.</p>';
+        resultsList.innerHTML =
+          '<p class="text-xs text-red-500">Could not load stores. Try again.</p>';
       }
     }
 
     searchBtn.onclick = doSearch;
-    zipInput.onkeydown = e => { if (e.key === 'Enter') doSearch(); };
+    zipInput.onkeydown = (e) => {
+      if (e.key === 'Enter') doSearch();
+    };
 
     searchRow.appendChild(zipInput);
     searchRow.appendChild(searchBtn);
@@ -455,7 +524,7 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
     // Apply per-meal servings overrides to mealPlans entries
     let changed = false;
     for (const [entryId, servings] of draftServings) {
-      const entry = mealPlans.find(e => e.id === entryId);
+      const entry = mealPlans.find((e) => e.id === entryId);
       if (!entry) continue;
       if (entry.servings !== servings) {
         entry.servings = servings;
@@ -480,7 +549,9 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
 
   sheet.appendChild(applyBtn);
   overlay.appendChild(sheet);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
 }
 
@@ -490,20 +561,20 @@ const EMA_ALPHA = 0.3;
 
 async function updateRecipeCosts(dateKeys, locationId) {
   const usedIds = new Set(
-    mealPlans.filter(e => dateKeys.includes(e.date)).map(e => e.recipeId)
+    mealPlans.filter((e) => dateKeys.includes(e.date)).map((e) => e.recipeId),
   );
 
   let changed = false;
 
   for (const id of usedIds) {
-    const recipe = recipes.find(r => r.id === id);
+    const recipe = recipes.find((r) => r.id === id);
     if (!recipe) continue;
 
     let total = 0;
-    for (const ing of (recipe.ingredients || [])) {
+    for (const ing of recipe.ingredients || []) {
       if (!ing.quantity && !ing.unit) continue; // separator rows
       const cacheKey = `${locationId}:${ing.name.toLowerCase()}`;
-      const cached   = priceCache.get(cacheKey);
+      const cached = priceCache.get(cacheKey);
       if (!cached || cached.text === '–') continue;
       const val = parseFloat(cached.text.replace('$', ''));
       if (!isNaN(val)) total += val;
@@ -514,16 +585,19 @@ async function updateRecipeCosts(dateKeys, locationId) {
     const newCostPerServing = total / (recipe.servings || 1);
     const prior = recipe.estimatedCostPerServing;
 
-    recipe.estimatedCostPerServing = prior != null
-      ? EMA_ALPHA * newCostPerServing + (1 - EMA_ALPHA) * prior
-      : newCostPerServing;
+    recipe.estimatedCostPerServing =
+      prior != null ? EMA_ALPHA * newCostPerServing + (1 - EMA_ALPHA) * prior : newCostPerServing;
     recipe.costSampleCount = (recipe.costSampleCount || 0) + 1;
-    recipe.lastPricedAt    = new Date().toISOString();
+    recipe.lastPricedAt = new Date().toISOString();
     changed = true;
   }
 
   if (changed) {
-    try { await saveRecipes([...recipes]); } catch { /* non-fatal */ }
+    try {
+      await saveRecipes([...recipes]);
+    } catch {
+      /* non-fatal */
+    }
   }
 }
 
@@ -542,23 +616,32 @@ async function loadKrogerData(items, locationId, gen, onComplete) {
       const products = await fetchProducts(item.name, locationId);
 
       // Lowest effective price across all results
-      let minVal = Infinity, isPromo = false;
+      let minVal = Infinity,
+        isPromo = false;
       for (const product of products) {
-        for (const pItem of (product.items || [])) {
+        for (const pItem of product.items || []) {
           const p = pItem.price;
           if (!p) continue;
           const val = p.promo ?? p.regular;
-          if (val != null && val < minVal) { minVal = val; isPromo = !!p.promo; }
+          if (val != null && val < minVal) {
+            minVal = val;
+            isPromo = !!p.promo;
+          }
         }
       }
-      priceCache.set(cacheKey, { text: minVal < Infinity ? `$${minVal.toFixed(2)}` : '–', promo: isPromo });
+      priceCache.set(cacheKey, {
+        text: minVal < Infinity ? `$${minVal.toFixed(2)}` : '–',
+        promo: isPromo,
+      });
 
       // Aisle from first product that has location data
-      const aisleLocation = products.find(p => p.aisleLocations?.length)?.aisleLocations[0];
-      aisleCache.set(cacheKey, aisleLocation
-        ? { number: aisleLocation.number, description: aisleLocation.description }
-        : null);
-
+      const aisleLocation = products.find((p) => p.aisleLocations?.length)?.aisleLocations[0];
+      aisleCache.set(
+        cacheKey,
+        aisleLocation
+          ? { number: aisleLocation.number, description: aisleLocation.description }
+          : null,
+      );
     } catch {
       priceCache.set(cacheKey, { text: '–', promo: false });
       aisleCache.set(cacheKey, null);
@@ -608,7 +691,8 @@ function showAisleReorderSheet(store, sortedGroups, onSave) {
 
   const subtitle = document.createElement('p');
   subtitle.className = 'text-xs text-gray-400 mb-4';
-  subtitle.textContent = 'Drag up/down to match how you walk the store. Saved for everyone in your group.';
+  subtitle.textContent =
+    'Drag up/down to match how you walk the store. Saved for everyone in your group.';
   sheet.appendChild(subtitle);
 
   // Working copy of the order as array of group keys
@@ -678,7 +762,9 @@ function showAisleReorderSheet(store, sortedGroups, onSave) {
   sheet.appendChild(saveBtn);
 
   overlay.appendChild(sheet);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
 }
 
@@ -728,7 +814,10 @@ function showAisleAssignSheet(item, store, sortedGroups, currentGroupKey, onSave
     }`;
     row.textContent = isCurrent ? `${label} ✓` : label;
     row.onclick = async () => {
-      if (isCurrent) { overlay.remove(); return; }
+      if (isCurrent) {
+        overlay.remove();
+        return;
+      }
       row.disabled = true;
       try {
         const config = getAisleConfig(store.locationId);
@@ -736,14 +825,18 @@ function showAisleAssignSheet(item, store, sortedGroups, currentGroupKey, onSave
         await saveAisleConfig(store.locationId, { ...config, overrides });
         overlay.remove();
         onSave();
-      } catch { row.disabled = false; }
+      } catch {
+        row.disabled = false;
+      }
     };
     listEl.appendChild(row);
   }
 
   sheet.appendChild(listEl);
   overlay.appendChild(sheet);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
 }
 
@@ -751,7 +844,13 @@ function showAisleAssignSheet(item, store, sortedGroups, currentGroupKey, onSave
 
 let staplesEditMode = false;
 
-function renderStaplesSection(container, store, checkedStaples, inAisleMode = false, onCheck = null) {
+function renderStaplesSection(
+  container,
+  store,
+  checkedStaples,
+  inAisleMode = false,
+  onCheck = null,
+) {
   const wrapper = document.createElement('div');
   wrapper.className = 'mt-6';
 
@@ -765,7 +864,8 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
     headerRow.className = 'flex items-center justify-between mb-2';
 
     const titleEl = document.createElement('span');
-    titleEl.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none';
+    titleEl.className =
+      'text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none';
     titleEl.textContent = `Staples${staples.length ? ` (${staples.length})` : ''}`;
     titleEl.onclick = () => {
       localStorage.setItem('staplesCollapsed', String(!collapsed));
@@ -780,7 +880,10 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
       editBtn.type = 'button';
       editBtn.className = 'text-xs text-gray-400 hover:text-green-600';
       editBtn.textContent = staplesEditMode ? 'Done' : 'Edit';
-      editBtn.onclick = () => { staplesEditMode = !staplesEditMode; redraw(); };
+      editBtn.onclick = () => {
+        staplesEditMode = !staplesEditMode;
+        redraw();
+      };
       rightGroup.appendChild(editBtn);
     }
 
@@ -808,17 +911,29 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
       return;
     }
 
+    // Checked staples render in the "In cart" section instead (edit mode shows all)
+    const visibleStaples = staplesEditMode
+      ? staples
+      : staples.filter(
+          (s) => !checkedStaples.has(`${s.name.toLowerCase()}|${(s.unit || '').toLowerCase()}`),
+        );
+
     // Item list
     if (staples.length === 0 && !staplesEditMode) {
       const empty = document.createElement('p');
       empty.className = 'text-xs text-gray-300 italic mb-2';
       empty.textContent = 'No staples yet — tap Edit to add some.';
       wrapper.appendChild(empty);
+    } else if (visibleStaples.length === 0 && !staplesEditMode) {
+      const allIn = document.createElement('p');
+      allIn.className = 'text-xs text-gray-300 italic mb-2';
+      allIn.textContent = 'All staples are in your cart.';
+      wrapper.appendChild(allIn);
     } else {
       const card = document.createElement('div');
       card.className = 'card divide-y divide-gray-50 mb-3';
 
-      for (const staple of staples) {
+      for (const staple of visibleStaples) {
         if (staplesEditMode) {
           const row = document.createElement('div');
           row.className = 'flex items-center gap-2 py-2.5 px-1';
@@ -834,21 +949,23 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
           delBtn.textContent = '×';
           delBtn.className = 'text-gray-300 hover:text-red-400 text-lg leading-none shrink-0';
           delBtn.onclick = async () => {
-            const updated = staples.filter(s => s.id !== staple.id);
+            const updated = staples.filter((s) => s.id !== staple.id);
             try {
               await saveStaples(updated);
-            } catch { toastError('Could not remove staple.'); }
+            } catch {
+              toastError('Could not remove staple.');
+            }
             redraw();
           };
           row.appendChild(delBtn);
           card.appendChild(row);
         } else {
           const fakeItem = {
-            name:        staple.name,
-            unit:        staple.unit || '',
+            name: staple.name,
+            unit: staple.unit || '',
             preparation: '',
-            totalQty:    parseQty(staple.quantity),
-            rawQty:      staple.quantity || '',
+            totalQty: parseQty(staple.quantity),
+            rawQty: staple.quantity || '',
           };
           card.appendChild(makeItemRow(fakeItem, store, checkedStaples, null, onCheck));
         }
@@ -884,23 +1001,27 @@ function renderStaplesSection(container, store, checkedStaples, inAisleMode = fa
         const name = nameInput.value.trim();
         if (!name) return;
         const newStaple = {
-          id:       crypto.randomUUID(),
+          id: crypto.randomUUID(),
           name,
           quantity: qtyInput.value.trim(),
-          unit:     unitInput.value.trim(),
+          unit: unitInput.value.trim(),
         };
         try {
           await saveStaples([...staples, newStaple]);
           nameInput.value = '';
-          qtyInput.value  = '';
+          qtyInput.value = '';
           unitInput.value = '';
           nameInput.focus();
-        } catch { toastError('Could not save staple.'); }
+        } catch {
+          toastError('Could not save staple.');
+        }
         redraw();
       }
 
       addBtn.onclick = doAdd;
-      nameInput.onkeydown = e => { if (e.key === 'Enter') doAdd(); };
+      nameInput.onkeydown = (e) => {
+        if (e.key === 'Enter') doAdd();
+      };
 
       addRow.appendChild(nameInput);
       addRow.appendChild(qtyInput);
@@ -923,11 +1044,11 @@ export function renderGroceryList() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let startDate       = today;
-  let endDate         = addDays(today, 6);
+  let startDate = today;
+  let endDate = addDays(today, 6);
   let defaultServings = parseInt(localStorage.getItem('groceryDefaultServings')) || 4;
 
-  const checked        = new Set(JSON.parse(localStorage.getItem('groceryChecked') || '[]'));
+  const checked = new Set(JSON.parse(localStorage.getItem('groceryChecked') || '[]'));
   const checkedStaples = new Set(JSON.parse(localStorage.getItem('groceryCheckedStaples') || '[]'));
 
   function persistChecked() {
@@ -935,7 +1056,27 @@ export function renderGroceryList() {
     localStorage.setItem('groceryCheckedStaples', JSON.stringify([...checkedStaples]));
   }
 
+  const keyOf = (item) => `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
+
+  // Checked items linger briefly (so a mis-tap can be caught), then the list
+  // re-renders and they slide down to the "In cart" section at the bottom.
+  let moveTimer = null;
+  function scheduleMove() {
+    persistChecked();
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      moveTimer = null;
+      render();
+    }, 500);
+  }
+  function moveNow() {
+    persistChecked();
+    render();
+  }
+
   function render() {
+    clearTimeout(moveTimer);
+    moveTimer = null;
     container.innerHTML = '';
 
     // Header
@@ -945,24 +1086,30 @@ export function renderGroceryList() {
     const rangePill = document.createElement('span');
     rangePill.className = 'text-sm font-semibold text-gray-700';
     const sameYear = startDate.getFullYear() === endDate.getFullYear();
-    const endFmt = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' });
+    const endFmt = endDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: sameYear ? undefined : 'numeric',
+    });
     rangePill.textContent = `${fmtDate(startDate)} – ${endFmt}`;
 
     const settingsBtn = btn('⚙', 'ghost');
     settingsBtn.title = 'Shopping settings';
-    settingsBtn.onclick = () => showConfigSheet({
-      startDate,
-      endDate,
-      defaultServings,
-      onApply: (updated) => {
-        startDate       = updated.startDate;
-        endDate         = updated.endDate;
-        defaultServings = updated.defaultServings;
-        checked.clear(); checkedStaples.clear();
-        persistChecked();
-        render();
-      },
-    });
+    settingsBtn.onclick = () =>
+      showConfigSheet({
+        startDate,
+        endDate,
+        defaultServings,
+        onApply: (updated) => {
+          startDate = updated.startDate;
+          endDate = updated.endDate;
+          defaultServings = updated.defaultServings;
+          checked.clear();
+          checkedStaples.clear();
+          persistChecked();
+          render();
+        },
+      });
 
     headerRow.appendChild(rangePill);
     headerRow.appendChild(settingsBtn);
@@ -970,7 +1117,10 @@ export function renderGroceryList() {
 
     const keys = [];
     const d = new Date(startDate);
-    while (d <= endDate) { keys.push(toDateKey(d)); d.setDate(d.getDate() + 1); }
+    while (d <= endDate) {
+      keys.push(toDateKey(d));
+      d.setDate(d.getDate() + 1);
+    }
 
     const items = buildGroceryList(keys, defaultServings);
 
@@ -984,13 +1134,45 @@ export function renderGroceryList() {
 
     const store = getSavedStore();
 
+    // Determine if we have aisle data for all items (including staples)
+    const allAislesCached =
+      store &&
+      [...items, ...staples].every((item) =>
+        aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`),
+      );
+
+    // ── Partition into remaining vs in-cart ─────────────────
+    // In aisle mode, staples render inside aisle cards and share the `checked`
+    // set; otherwise they live in the staples section with `checkedStaples`.
+    const stapleItems = staples.map((s) => ({
+      name: s.name,
+      unit: s.unit || '',
+      preparation: '',
+      section: '',
+      totalQty: parseQty(s.quantity),
+      rawQty: s.quantity || '',
+      isStaple: true,
+    }));
+    const shopRows = allAislesCached
+      ? [...items, ...stapleItems].map((item) => ({ item, set: checked }))
+      : [
+          ...items.map((item) => ({ item, set: checked })),
+          ...stapleItems.map((item) => ({ item, set: checkedStaples })),
+        ];
+    const cartRows = shopRows.filter((r) => r.set.has(keyOf(r.item)));
+    const remaining = shopRows.length - cartRows.length;
+    const tripDone = shopRows.length > 0 && remaining === 0;
+
     // Summary row
     const summaryRow = document.createElement('div');
     summaryRow.className = 'flex items-center justify-between mb-1';
 
     const countEl = document.createElement('span');
     countEl.className = 'text-xs text-gray-400';
-    countEl.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+    countEl.textContent =
+      cartRows.length > 0
+        ? `${remaining} of ${shopRows.length} remaining`
+        : `${items.length} item${items.length !== 1 ? 's' : ''}`;
 
     const summaryRight = document.createElement('div');
     summaryRight.className = 'flex items-center gap-3';
@@ -1006,7 +1188,12 @@ export function renderGroceryList() {
     clearBtn.type = 'button';
     clearBtn.textContent = 'Clear checks';
     clearBtn.className = 'text-xs text-gray-400 hover:text-gray-600';
-    clearBtn.onclick = () => { checked.clear(); checkedStaples.clear(); persistChecked(); render(); };
+    clearBtn.onclick = () => {
+      checked.clear();
+      checkedStaples.clear();
+      persistChecked();
+      render();
+    };
 
     summaryRight.appendChild(clearBtn);
     summaryRow.appendChild(countEl);
@@ -1016,14 +1203,43 @@ export function renderGroceryList() {
     if (store) {
       const legend = document.createElement('p');
       legend.className = 'text-xs text-gray-400 mb-4';
-      legend.innerHTML = 'Sorted by aisle &middot; lowest available price &middot; <span class="text-green-600">green</span> = on sale';
+      legend.innerHTML =
+        'Sorted by aisle &middot; lowest available price &middot; <span class="text-green-600">green</span> = on sale';
       container.appendChild(legend);
     }
 
-    // Determine if we have aisle data for all items (including staples)
-    const allAislesCached = store && [...items, ...staples].every(
-      item => aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
-    );
+    // ── Trip complete: collapse the list into a done card ───
+    if (tripDone) {
+      const done = document.createElement('div');
+      done.className = 'card text-center py-10 px-4 mt-2';
+
+      const doneEmoji = document.createElement('div');
+      doneEmoji.className = 'text-3xl mb-2';
+      doneEmoji.textContent = '🎉';
+
+      const doneMsg = document.createElement('p');
+      doneMsg.className = 'font-semibold text-gray-800 mb-1';
+      doneMsg.textContent = `All ${shopRows.length} items gathered`;
+
+      const doneSub = document.createElement('p');
+      doneSub.className = 'text-sm text-gray-400 mb-4';
+      doneSub.textContent = "Nice work — that's everything on the list.";
+
+      const doneBtn = btn('Start next trip', 'secondary');
+      doneBtn.onclick = () => {
+        checked.clear();
+        checkedStaples.clear();
+        persistChecked();
+        render();
+      };
+
+      done.appendChild(doneEmoji);
+      done.appendChild(doneMsg);
+      done.appendChild(doneSub);
+      done.appendChild(doneBtn);
+      container.appendChild(done);
+      return;
+    }
 
     if (store && allAislesCached) {
       // ── Aisle-grouped render ────────────────────────────
@@ -1031,16 +1247,10 @@ export function renderGroceryList() {
 
       // First pass: natural grouping by Kroger aisle data (recipe items + staples)
       const aisleMap = new Map();
-      const allAisleItems = [
-        ...items,
-        ...staples.map(s => ({
-          name: s.name, unit: s.unit || '', preparation: '', section: '',
-          totalQty: parseQty(s.quantity), rawQty: s.quantity || '', isStaple: true,
-        })),
-      ];
+      const allAisleItems = [...items, ...stapleItems];
       for (const item of allAisleItems) {
         const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
-        const aisle    = aisleCache.get(cacheKey);
+        const aisle = aisleCache.get(cacheKey);
         const groupKey = aisle?.number ?? '?';
         if (!aisleMap.has(groupKey)) aisleMap.set(groupKey, { aisle, items: [] });
         aisleMap.get(groupKey).items.push(item);
@@ -1049,7 +1259,7 @@ export function renderGroceryList() {
       // Second pass: apply per-item overrides
       for (const [itemName, targetKey] of Object.entries(config.overrides)) {
         for (const [, group] of aisleMap) {
-          const idx = group.items.findIndex(i => i.name.toLowerCase() === itemName);
+          const idx = group.items.findIndex((i) => i.name.toLowerCase() === itemName);
           if (idx === -1) continue;
           const [item] = group.items.splice(idx, 1);
           if (!aisleMap.has(targetKey)) {
@@ -1086,6 +1296,11 @@ export function renderGroceryList() {
       summaryRight.prepend(reorderBtn);
 
       for (const [groupKey, { aisle, items: groupItems }] of sortedGroups) {
+        // Items already in the cart render in the "In cart" section instead;
+        // an aisle with nothing left disappears entirely.
+        const visibleItems = groupItems.filter((i) => !checked.has(keyOf(i)));
+        if (visibleItems.length === 0) continue;
+
         const groupEl = document.createElement('div');
         groupEl.className = 'mb-5';
 
@@ -1099,29 +1314,36 @@ export function renderGroceryList() {
         const card = document.createElement('div');
         card.className = 'card divide-y divide-gray-50';
 
-        for (const item of groupItems) {
-          card.appendChild(makeItemRow(item, store, checked,
-            (movedItem) => showAisleAssignSheet(movedItem, store, sortedGroups, groupKey, render),
-            persistChecked
-          ));
+        for (const item of visibleItems) {
+          card.appendChild(
+            makeItemRow(
+              item,
+              store,
+              checked,
+              (movedItem) => showAisleAssignSheet(movedItem, store, sortedGroups, groupKey, render),
+              scheduleMove,
+            ),
+          );
         }
 
         groupEl.appendChild(card);
         container.appendChild(groupEl);
       }
-
     } else {
       // ── Section-grouped render (no store, or aisles still loading) ─
       // Groups by ingredient section; re-renders as aisle view once Kroger data loads.
+      const visibleItems = items.filter((i) => !checked.has(keyOf(i)));
       const sectionMap = new Map();
-      for (const item of items) {
+      for (const item of visibleItems) {
         const key = item.section || '';
         if (!sectionMap.has(key)) sectionMap.set(key, []);
         sectionMap.get(key).push(item);
       }
 
       const hasSections = sectionMap.size > 1 || (sectionMap.size === 1 && !sectionMap.has(''));
-      if (hasSections) {
+      if (visibleItems.length === 0) {
+        // Every recipe item is in the cart — nothing to render up here.
+      } else if (hasSections) {
         const sortedSections = [...sectionMap.entries()].sort(([a], [b]) => {
           if (a === '') return 1;
           if (b === '') return -1;
@@ -1140,7 +1362,7 @@ export function renderGroceryList() {
           const card = document.createElement('div');
           card.className = 'card divide-y divide-gray-50';
           for (const item of groupItems) {
-            card.appendChild(makeItemRow(item, store, checked, null, persistChecked));
+            card.appendChild(makeItemRow(item, store, checked, null, scheduleMove));
           }
           groupEl.appendChild(card);
           container.appendChild(groupEl);
@@ -1148,19 +1370,16 @@ export function renderGroceryList() {
       } else {
         const card = document.createElement('div');
         card.className = 'card divide-y divide-gray-50 mb-5';
-        for (const item of items) {
-          card.appendChild(makeItemRow(item, store, checked, null, persistChecked));
+        for (const item of visibleItems) {
+          card.appendChild(makeItemRow(item, store, checked, null, scheduleMove));
         }
         container.appendChild(card);
       }
 
       if (store) {
-        const allItems = [
-          ...items,
-          ...staples.map(s => ({ name: s.name, unit: s.unit || '' })),
-        ];
+        const allItems = [...items, ...staples.map((s) => ({ name: s.name, unit: s.unit || '' }))];
         const uncached = allItems.filter(
-          item => !aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`)
+          (item) => !aisleCache.has(`${store.locationId}:${item.name.toLowerCase()}`),
         );
         if (uncached.length > 0) {
           const gen = ++fetchGeneration;
@@ -1173,28 +1392,57 @@ export function renderGroceryList() {
       }
     }
 
-    renderStaplesSection(container, store, checkedStaples, allAislesCached, persistChecked);
+    renderStaplesSection(container, store, checkedStaples, allAislesCached, scheduleMove);
+
+    // Gathered items live at the very bottom; unchecking sends one back up.
+    renderCartSection(container, store, cartRows, moveNow);
   }
 
   render();
 }
 
+// ── In-cart section ────────────────────────────────────────
+// Everything the shopper has gathered, at the very bottom of the list.
+// cartRows is [{ item, set }] — `set` is whichever checked-set owns the item,
+// so unchecking here returns it to the right place above.
+
+function renderCartSection(container, store, cartRows, onUncheck) {
+  if (cartRows.length === 0) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mt-8';
+
+  const label = document.createElement('div');
+  label.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2';
+  label.textContent = `In cart (${cartRows.length})`;
+  wrapper.appendChild(label);
+
+  const card = document.createElement('div');
+  card.className = 'card divide-y divide-gray-50';
+  for (const { item, set } of cartRows) {
+    card.appendChild(makeItemRow(item, store, set, null, onUncheck));
+  }
+  wrapper.appendChild(card);
+  container.appendChild(wrapper);
+}
+
 // ── Item row builder ───────────────────────────────────────
 
 function makeItemRow(item, store, checked, onMove = null, onCheck = null) {
-  const key       = `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
+  const key = `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
   const isChecked = checked.has(key);
 
   const row = document.createElement('label');
-  row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${isChecked ? ' opacity-40' : ''}`;
+  row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer transition-opacity duration-300${isChecked ? ' opacity-40' : ''}`;
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = isChecked;
   checkbox.className = 'w-4 h-4 rounded accent-green-600 shrink-0';
   checkbox.onchange = () => {
-    if (checkbox.checked) checked.add(key); else checked.delete(key);
-    row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer${checkbox.checked ? ' opacity-40' : ''}`;
+    if (checkbox.checked) checked.add(key);
+    else checked.delete(key);
+    row.className = `flex items-center gap-3 py-2.5 px-1 cursor-pointer transition-opacity duration-300${checkbox.checked ? ' opacity-40' : ''}`;
     textEl.classList.toggle('line-through', checkbox.checked);
     if (onCheck) onCheck();
   };
@@ -1203,7 +1451,7 @@ function makeItemRow(item, store, checked, onMove = null, onCheck = null) {
   textEl.className = `text-sm text-gray-800 flex-1${isChecked ? ' line-through' : ''}`;
 
   const qtyStr = item.totalQty > 0 ? formatQty(item.totalQty) : item.rawQty;
-  const parts  = [qtyStr, item.unit, item.name].filter(Boolean).join(' ');
+  const parts = [qtyStr, item.unit, item.name].filter(Boolean).join(' ');
   textEl.textContent = item.preparation ? `${parts}, ${item.preparation}` : parts;
 
   row.appendChild(checkbox);
@@ -1211,7 +1459,7 @@ function makeItemRow(item, store, checked, onMove = null, onCheck = null) {
 
   if (store) {
     const cacheKey = `${store.locationId}:${item.name.toLowerCase()}`;
-    const priceEl  = document.createElement('span');
+    const priceEl = document.createElement('span');
     priceEl.className = 'text-xs text-gray-400 shrink-0 w-12 text-right tabular-nums';
 
     const cached = priceCache.get(cacheKey);
@@ -1231,7 +1479,10 @@ function makeItemRow(item, store, checked, onMove = null, onCheck = null) {
     moveBtn.textContent = '↔';
     moveBtn.title = 'Move to different aisle';
     moveBtn.className = 'text-gray-300 hover:text-green-500 text-sm leading-none shrink-0 pl-1';
-    moveBtn.onclick = e => { e.preventDefault(); onMove(item); };
+    moveBtn.onclick = (e) => {
+      e.preventDefault();
+      onMove(item);
+    };
     row.appendChild(moveBtn);
   }
 
