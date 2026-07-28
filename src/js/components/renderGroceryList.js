@@ -1058,6 +1058,12 @@ export function renderGroceryList() {
 
   const keyOf = (item) => `${item.name.toLowerCase()}|${(item.unit || '').toLowerCase()}`;
 
+  // Invisible marker owned by this view's latest render. If anything else
+  // repaints the container (another tab, recipe detail), the marker
+  // disconnects and late async callbacks know not to repaint over it.
+  let liveMarker = null;
+  const stillOnGrocery = () => liveMarker?.isConnected === true;
+
   // Checked items linger briefly (so a mis-tap can be caught), then the list
   // re-renders and they slide down to the "In cart" section at the bottom.
   let moveTimer = null;
@@ -1066,7 +1072,7 @@ export function renderGroceryList() {
     clearTimeout(moveTimer);
     moveTimer = setTimeout(() => {
       moveTimer = null;
-      render();
+      if (stillOnGrocery()) render();
     }, 500);
   }
   function moveNow() {
@@ -1078,6 +1084,9 @@ export function renderGroceryList() {
     clearTimeout(moveTimer);
     moveTimer = null;
     container.innerHTML = '';
+    liveMarker = document.createElement('span');
+    liveMarker.hidden = true;
+    container.appendChild(liveMarker);
 
     // Header
     const headerRow = document.createElement('div');
@@ -1386,7 +1395,7 @@ export function renderGroceryList() {
           loadKrogerData(uncached, store.locationId, gen, async () => {
             if (fetchGeneration !== gen) return;
             await updateRecipeCosts(keys, store.locationId);
-            render();
+            if (stillOnGrocery()) render();
           });
         }
       }

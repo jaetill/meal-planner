@@ -3,6 +3,7 @@ import { mealPlans, saveMealPlans, generateMealPlan, refineMealPlan } from '../d
 import { calcNutritionByMeal, populateRecipeNutrition } from '../data/nutrition.js';
 import { btn } from '../ui/elements.js';
 import { toastError, toastSuccess } from '../ui/toast.js';
+
 import { renderRecipeView } from './renderRecipeView.js';
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner'];
@@ -40,18 +41,32 @@ export function renderMealPlan() {
 
   let weekStart = getMondayOf(new Date());
 
+  // Invisible marker owned by this view's latest render. If anything else
+  // repaints the container (another tab, recipe detail, cook mode), the
+  // marker disconnects and late async callbacks know not to repaint over it.
+  let liveMarker = null;
+
   function render() {
     container.innerHTML = '';
+    liveMarker = document.createElement('span');
+    liveMarker.hidden = true;
+    container.appendChild(liveMarker);
 
     // Week nav header
     const nav = document.createElement('div');
     nav.className = 'flex items-center justify-between mb-4';
 
     const prevBtn = btn('←', 'ghost');
-    prevBtn.onclick = () => { weekStart = addDays(weekStart, -7); render(); };
+    prevBtn.onclick = () => {
+      weekStart = addDays(weekStart, -7);
+      render();
+    };
 
     const nextBtn = btn('→', 'ghost');
-    nextBtn.onclick = () => { weekStart = addDays(weekStart, 7); render(); };
+    nextBtn.onclick = () => {
+      weekStart = addDays(weekStart, 7);
+      render();
+    };
 
     const weekLabel = document.createElement('span');
     weekLabel.className = 'text-sm font-semibold text-gray-700';
@@ -59,7 +74,8 @@ export function renderMealPlan() {
     weekLabel.textContent = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
     const aiBtn = btn('AI Plan', 'ghost');
-    aiBtn.className = 'text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-600 font-medium hover:bg-purple-100';
+    aiBtn.className =
+      'text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-600 font-medium hover:bg-purple-100';
     aiBtn.onclick = () => showAIPlanModal(weekStart, render);
 
     nav.appendChild(prevBtn);
@@ -72,7 +88,7 @@ export function renderMealPlan() {
     for (let i = 0; i < 7; i++) {
       const day = addDays(weekStart, i);
       const dateKey = toDateKey(day);
-      const dayEntries = mealPlans.filter(e => e.date === dateKey);
+      const dayEntries = mealPlans.filter((e) => e.date === dateKey);
 
       const card = document.createElement('div');
       card.className = 'card mb-3';
@@ -101,12 +117,12 @@ export function renderMealPlan() {
       } else {
         // Group by meal
         const byMeal = {};
-        dayEntries.forEach(e => {
+        dayEntries.forEach((e) => {
           if (!byMeal[e.meal]) byMeal[e.meal] = [];
           byMeal[e.meal].push(e);
         });
 
-        MEALS.forEach(meal => {
+        MEALS.forEach((meal) => {
           if (!byMeal[meal]) return;
           const mealGroup = document.createElement('div');
           mealGroup.className = 'mb-2';
@@ -116,15 +132,21 @@ export function renderMealPlan() {
           mealLabel.textContent = meal;
           mealGroup.appendChild(mealLabel);
 
-          byMeal[meal].forEach(entry => {
+          byMeal[meal].forEach((entry) => {
             const isPlain = !!entry.plainText;
-            const recipe = isPlain ? null : recipes.find(r => r.id === entry.recipeId);
+            const recipe = isPlain ? null : recipes.find((r) => r.id === entry.recipeId);
             const row = document.createElement('div');
             row.className = 'flex items-center gap-2 py-0.5';
 
             const nameEl = document.createElement('span');
-            nameEl.className = 'text-sm text-gray-800 flex-1' + (isPlain ? '' : ' cursor-pointer hover:text-green-700');
-            nameEl.textContent = isPlain ? entry.plainText : (recipe ? recipe.name : '(deleted recipe)');
+            nameEl.className =
+              'text-sm text-gray-800 flex-1' +
+              (isPlain ? '' : ' cursor-pointer hover:text-green-700');
+            nameEl.textContent = isPlain
+              ? entry.plainText
+              : recipe
+                ? recipe.name
+                : '(deleted recipe)';
             if (recipe) {
               nameEl.onclick = () => renderRecipeView(recipe, renderMealPlan);
             }
@@ -134,7 +156,7 @@ export function renderMealPlan() {
             removeBtn.textContent = '×';
             removeBtn.className = 'text-gray-300 hover:text-red-400 text-lg leading-none shrink-0';
             removeBtn.onclick = async () => {
-              const updated = mealPlans.filter(e => e.id !== entry.id);
+              const updated = mealPlans.filter((e) => e.id !== entry.id);
               try {
                 await saveMealPlans(updated);
                 render();
@@ -158,7 +180,8 @@ export function renderMealPlan() {
                 servingsWrap.innerHTML = '';
                 const badge = document.createElement('button');
                 badge.type = 'button';
-                badge.className = 'text-xs text-gray-400 hover:text-green-600 px-1.5 py-0.5 rounded hover:bg-green-50';
+                badge.className =
+                  'text-xs text-gray-400 hover:text-green-600 px-1.5 py-0.5 rounded hover:bg-green-50';
                 badge.textContent = `${currentServings}×`;
                 badge.title = 'Edit servings';
                 badge.onclick = showStepper;
@@ -171,7 +194,8 @@ export function renderMealPlan() {
                 const minus = document.createElement('button');
                 minus.type = 'button';
                 minus.textContent = '−';
-                minus.className = 'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
+                minus.className =
+                  'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
 
                 const display = document.createElement('span');
                 display.className = 'text-xs font-semibold text-gray-700 w-5 text-center';
@@ -180,15 +204,20 @@ export function renderMealPlan() {
                 const plus = document.createElement('button');
                 plus.type = 'button';
                 plus.textContent = '+';
-                plus.className = 'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
+                plus.className =
+                  'text-xs w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-700';
 
                 const confirm = document.createElement('button');
                 confirm.type = 'button';
                 confirm.textContent = '✓';
-                confirm.className = 'text-xs w-5 h-5 flex items-center justify-center text-green-600 hover:text-green-700 ml-0.5';
+                confirm.className =
+                  'text-xs w-5 h-5 flex items-center justify-center text-green-600 hover:text-green-700 ml-0.5';
 
                 minus.onclick = () => {
-                  if (currentServings > 1) { currentServings--; display.textContent = currentServings; }
+                  if (currentServings > 1) {
+                    currentServings--;
+                    display.textContent = currentServings;
+                  }
                 };
                 plus.onclick = () => {
                   currentServings++;
@@ -241,7 +270,7 @@ export function renderMealPlan() {
           const MEAL_ABBREV = { Breakfast: 'B', Lunch: 'L', Dinner: 'D' };
           const mealCount = Object.keys(byMeal).length;
 
-          MEALS.forEach(meal => {
+          MEALS.forEach((meal) => {
             const n = byMeal[meal];
             if (!n) return;
 
@@ -256,10 +285,10 @@ export function renderMealPlan() {
             }
 
             [
-              { label: 'cal',  value: n.calories },
-              { label: 'pro',  value: n.protein,  unit: 'g' },
-              { label: 'fat',  value: n.fat,       unit: 'g' },
-              { label: 'carb', value: n.carbs,     unit: 'g' },
+              { label: 'cal', value: n.calories },
+              { label: 'pro', value: n.protein, unit: 'g' },
+              { label: 'fat', value: n.fat, unit: 'g' },
+              { label: 'carb', value: n.carbs, unit: 'g' },
             ].forEach(({ label, value, unit = '' }) => {
               const item = document.createElement('span');
               item.className = 'text-xs text-gray-400';
@@ -282,16 +311,14 @@ export function renderMealPlan() {
   prefetchWeekNutrition();
 
   function prefetchWeekNutrition() {
-    const keys = Array.from({ length: 7 }, (_, i) =>
-      toDateKey(addDays(weekStart, i))
-    );
-    const unpopulated = [...new Set(
-      mealPlans
-        .filter(e => keys.includes(e.date) && e.recipeId)
-        .map(e => e.recipeId)
-    )]
-      .map(id => recipes.find(r => r.id === id))
-      .filter(r => r && r.ingredients?.some(ing => ing.quantity && ing.calories == null));
+    const keys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i)));
+    const unpopulated = [
+      ...new Set(
+        mealPlans.filter((e) => keys.includes(e.date) && e.recipeId).map((e) => e.recipeId),
+      ),
+    ]
+      .map((id) => recipes.find((r) => r.id === id))
+      .filter((r) => r && r.ingredients?.some((ing) => ing.quantity && ing.calories == null));
 
     if (unpopulated.length === 0) return;
 
@@ -299,7 +326,9 @@ export function renderMealPlan() {
       for (const recipe of unpopulated) {
         await populateRecipeNutrition(recipe);
       }
-      render();
+      // Nutrition lookups can take seconds — only repaint if this view still
+      // owns the container, otherwise we'd yank the user back here.
+      if (liveMarker?.isConnected) render();
     })();
   }
 }
@@ -336,19 +365,21 @@ function showPicker(dateKey, onSave) {
   mealRow.className = 'flex gap-2 mb-3';
   let selectedMeal = 'Dinner';
 
-  const mealBtns = MEALS.map(meal => {
+  const mealBtns = MEALS.map((meal) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = meal;
-    b.className = meal === selectedMeal
-      ? 'text-xs px-3 py-1 rounded-full bg-green-600 text-white font-medium'
-      : 'text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600';
+    b.className =
+      meal === selectedMeal
+        ? 'text-xs px-3 py-1 rounded-full bg-green-600 text-white font-medium'
+        : 'text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600';
     b.onclick = () => {
       selectedMeal = meal;
       mealBtns.forEach((mb, mi) => {
-        mb.className = MEALS[mi] === selectedMeal
-          ? 'text-xs px-3 py-1 rounded-full bg-green-600 text-white font-medium'
-          : 'text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600';
+        mb.className =
+          MEALS[mi] === selectedMeal
+            ? 'text-xs px-3 py-1 rounded-full bg-green-600 text-white font-medium'
+            : 'text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600';
       });
     };
     mealRow.appendChild(b);
@@ -402,7 +433,7 @@ function showPicker(dateKey, onSave) {
     listEl.innerHTML = '';
     highlightIdx = -1;
     const filtered = query
-      ? recipes.filter(r => r.name.toLowerCase().includes(query.toLowerCase()))
+      ? recipes.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
       : [...recipes].sort((a, b) => a.name.localeCompare(b.name));
 
     // Quick-add option when there's text typed
@@ -410,16 +441,18 @@ function showPicker(dateKey, onSave) {
       const quickRow = document.createElement('button');
       quickRow.type = 'button';
       quickRow.dataset.quickAdd = '1';
-      quickRow.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-sm text-blue-700 border border-dashed border-blue-200 mb-1';
+      quickRow.className =
+        'w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-sm text-blue-700 border border-dashed border-blue-200 mb-1';
       quickRow.textContent = `+ Add "${query}" as quick item`;
       quickRow.onclick = () => addPlainItem(query);
       listEl.appendChild(quickRow);
     }
 
-    filtered.forEach(recipe => {
+    filtered.forEach((recipe) => {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 text-sm text-gray-800';
+      row.className =
+        'w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 text-sm text-gray-800';
       row.textContent = recipe.name;
       row.onclick = async () => {
         const entry = {
@@ -447,7 +480,7 @@ function showPicker(dateKey, onSave) {
     }
   }
 
-  searchInput.addEventListener('keydown', e => {
+  searchInput.addEventListener('keydown', (e) => {
     const rows = listEl.querySelectorAll('button');
     if (!rows.length) return;
 
@@ -471,7 +504,9 @@ function showPicker(dateKey, onSave) {
   renderList();
 
   overlay.appendChild(sheet);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
   searchInput.focus();
 }
@@ -483,9 +518,13 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   let userLocation = null;
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      pos => { userLocation = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }; },
-      () => { /* location unavailable — weather context will be skipped */ },
-      { timeout: 10000, maximumAge: 600000 }
+      (pos) => {
+        userLocation = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      },
+      () => {
+        /* location unavailable — weather context will be skipped */
+      },
+      { timeout: 10000, maximumAge: 600000 },
     );
   }
 
@@ -493,7 +532,8 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
 
   const sheet = document.createElement('div');
-  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[80vh] flex flex-col overflow-y-auto';
+  sheet.className =
+    'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[80vh] flex flex-col overflow-y-auto';
 
   // Header
   const header = document.createElement('div');
@@ -568,7 +608,7 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   const mealsRow = document.createElement('div');
   mealsRow.className = 'flex gap-2 mb-4';
 
-  MEALS.forEach(meal => {
+  MEALS.forEach((meal) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.textContent = meal;
@@ -579,8 +619,13 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
     };
     setStyle(selectedMeals.has(meal));
     chip.onclick = () => {
-      if (selectedMeals.has(meal)) { selectedMeals.delete(meal); setStyle(false); }
-      else { selectedMeals.add(meal); setStyle(true); }
+      if (selectedMeals.has(meal)) {
+        selectedMeals.delete(meal);
+        setStyle(false);
+      } else {
+        selectedMeals.add(meal);
+        setStyle(true);
+      }
     };
     mealsRow.appendChild(chip);
   });
@@ -594,10 +639,10 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
   const CONSTRAINT_OPTIONS = ['normal', 'quick', 'elaborate', 'none'];
   const CONSTRAINT_STYLES = {
-    normal:    'bg-gray-100 text-gray-600',
-    quick:     'bg-amber-100 text-amber-700',
+    normal: 'bg-gray-100 text-gray-600',
+    quick: 'bg-amber-100 text-amber-700',
     elaborate: 'bg-blue-100 text-blue-700',
-    none:      'bg-red-100 text-red-600',
+    none: 'bg-red-100 text-red-600',
   };
   const dayConstraints = {};
 
@@ -624,20 +669,24 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
       const dayName = document.createElement('span');
       dayName.className = 'text-xs text-gray-600 w-20 shrink-0';
-      dayName.textContent = day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      dayName.textContent = day.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
       row.appendChild(dayName);
 
       const chipGroup = document.createElement('div');
       chipGroup.className = 'flex gap-1';
 
-      const chips = CONSTRAINT_OPTIONS.map(opt => {
+      const chips = CONSTRAINT_OPTIONS.map((opt) => {
         const c = document.createElement('button');
         c.type = 'button';
         c.textContent = opt;
         c.className = `text-xs px-2 py-0.5 rounded-full ${opt === 'normal' ? CONSTRAINT_STYLES[opt] + ' ring-1 ring-gray-300' : CONSTRAINT_STYLES[opt]}`;
         c.onclick = () => {
           dayConstraints[dateKey] = opt;
-          chips.forEach(ch => {
+          chips.forEach((ch) => {
             const o = ch.textContent;
             ch.className = `text-xs px-2 py-0.5 rounded-full ${CONSTRAINT_STYLES[o]}${o === opt ? ' ring-1 ring-gray-300' : ''}`;
           });
@@ -696,13 +745,13 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
 
     // Gather existing entries for the selected dates
     const dateSet = new Set(planDates);
-    const existingEntries = mealPlans.filter(e => dateSet.has(e.date));
+    const existingEntries = mealPlans.filter((e) => dateSet.has(e.date));
 
     // Gather 2 weeks of history before the start date
     const rangeStart = new Date(planDates[0] + 'T00:00:00');
     const histStart = addDays(rangeStart, -14);
     const histDates = Array.from({ length: 14 }, (_, i) => toDateKey(addDays(histStart, i)));
-    const history = mealPlans.filter(e => histDates.includes(e.date));
+    const history = mealPlans.filter((e) => histDates.includes(e.date));
 
     genBtn.disabled = true;
     genBtn.textContent = 'Generating…';
@@ -732,7 +781,9 @@ function showAIPlanModal(weekStart, onPlanAccepted) {
   sheet.appendChild(genBtn);
 
   overlay.appendChild(sheet);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
 }
 
@@ -796,7 +847,7 @@ function showAIPlanReview(planDates, result, onAccepted) {
     // Day cards
     for (const dateKey of planDates) {
       const day = new Date(dateKey + 'T00:00:00');
-      const dayPlan = (currentResult.plan || []).filter(e => e.date === dateKey);
+      const dayPlan = (currentResult.plan || []).filter((e) => e.date === dateKey);
 
       if (dayPlan.length === 0) continue;
 
@@ -810,12 +861,12 @@ function showAIPlanReview(planDates, result, onAccepted) {
 
       // Group by meal
       const byMeal = {};
-      dayPlan.forEach(e => {
+      dayPlan.forEach((e) => {
         if (!byMeal[e.meal]) byMeal[e.meal] = [];
         byMeal[e.meal].push(e);
       });
 
-      MEALS.forEach(meal => {
+      MEALS.forEach((meal) => {
         if (!byMeal[meal]) return;
 
         const mealLabel = document.createElement('span');
@@ -823,9 +874,9 @@ function showAIPlanReview(planDates, result, onAccepted) {
         mealLabel.textContent = meal;
         card.appendChild(mealLabel);
 
-        byMeal[meal].forEach(entry => {
+        byMeal[meal].forEach((entry) => {
           const isPlain = !!entry.plainText;
-          const recipe = isPlain ? null : recipes.find(r => r.id === entry.recipeId);
+          const recipe = isPlain ? null : recipes.find((r) => r.id === entry.recipeId);
 
           const row = document.createElement('div');
           row.className = 'flex items-start gap-2 py-1';
@@ -834,8 +885,13 @@ function showAIPlanReview(planDates, result, onAccepted) {
           nameCol.className = 'flex-1 min-w-0';
 
           const nameEl = document.createElement('span');
-          nameEl.className = 'text-sm text-gray-800 block' + (recipe ? ' cursor-pointer hover:text-green-700' : '');
-          nameEl.textContent = isPlain ? entry.plainText : (recipe ? recipe.name : '(unknown recipe)');
+          nameEl.className =
+            'text-sm text-gray-800 block' + (recipe ? ' cursor-pointer hover:text-green-700' : '');
+          nameEl.textContent = isPlain
+            ? entry.plainText
+            : recipe
+              ? recipe.name
+              : '(unknown recipe)';
           if (recipe) {
             nameEl.onclick = () => {
               overlay.remove();
@@ -862,7 +918,7 @@ function showAIPlanReview(planDates, result, onAccepted) {
           removeBtn.textContent = '×';
           removeBtn.className = 'text-gray-300 hover:text-red-400 text-lg leading-none shrink-0';
           removeBtn.onclick = () => {
-            currentResult.plan = currentResult.plan.filter(e => e !== entry);
+            currentResult.plan = currentResult.plan.filter((e) => e !== entry);
             renderProposal();
           };
           row.appendChild(removeBtn);
@@ -961,7 +1017,7 @@ function showAIPlanReview(planDates, result, onAccepted) {
 
     try {
       // Build new meal plan entries from the proposal
-      const newEntries = (currentResult.plan || []).map(entry => {
+      const newEntries = (currentResult.plan || []).map((entry) => {
         const base = {
           id: crypto.randomUUID(),
           date: entry.date,
@@ -980,10 +1036,12 @@ function showAIPlanReview(planDates, result, onAccepted) {
       // (by matching recipeId or plainText) — keep manually-added items
       // that the AI complemented rather than replaced.
       const plannedDates = new Set(planDates);
-      const aiRecipeIds = new Set(newEntries.filter(e => e.recipeId).map(e => e.recipeId));
-      const aiPlainTexts = new Set(newEntries.filter(e => e.plainText).map(e => e.plainText.toLowerCase()));
+      const aiRecipeIds = new Set(newEntries.filter((e) => e.recipeId).map((e) => e.recipeId));
+      const aiPlainTexts = new Set(
+        newEntries.filter((e) => e.plainText).map((e) => e.plainText.toLowerCase()),
+      );
 
-      const kept = mealPlans.filter(e => {
+      const kept = mealPlans.filter((e) => {
         if (!plannedDates.has(e.date)) return true; // outside planned range — keep
         // Within range: remove if the AI generated the same recipe or same plainText
         if (e.recipeId && aiRecipeIds.has(e.recipeId)) return false;
@@ -1009,6 +1067,8 @@ function showAIPlanReview(planDates, result, onAccepted) {
   panel.appendChild(footer);
 
   overlay.appendChild(panel);
-  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
   document.body.appendChild(overlay);
 }
