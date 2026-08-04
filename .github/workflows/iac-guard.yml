@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   guard:
-    uses: jaetill/agentic-dev-environment/.github/workflows/iac-guard.yml@e281c3935cb6cc08e30e299c83ede4a47005f3df # main
+    uses: jaetill/agentic-dev-environment/.github/workflows/iac-guard.yml@05d8633d7419599b4d0300d5dd7eaf71486ba52c # main
     with:
       tf-dir: terraform/envs/prod
       aws-region: us-east-2
