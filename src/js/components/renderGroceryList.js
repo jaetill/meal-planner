@@ -9,6 +9,12 @@ import {
   saveAisleOrders,
 } from '../data/index.js';
 import { getSavedStore, saveStore, fetchStores, fetchProducts } from '../data/kroger.js';
+import {
+  getSavedRetailer,
+  saveRetailer,
+  fetchRetailers,
+  createShoppingList,
+} from '../data/instacart.js';
 import { btn } from '../ui/elements.js';
 import { toastError } from '../ui/toast.js';
 
@@ -548,6 +554,183 @@ function showConfigSheet({ startDate, endDate, defaultServings, onApply }) {
   };
 
   sheet.appendChild(applyBtn);
+  overlay.appendChild(sheet);
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.remove();
+  };
+  document.body.appendChild(overlay);
+}
+
+// ── Delivery handoff (Instacart) ───────────────────────────
+// Everything still unchecked goes to a pre-filled Instacart shopping list
+// opened in a new tab, with the saved retailer (e.g. Aldi) pre-selected.
+// Instacart's API stops at the cart — the user reviews matches and checks
+// out there. Checked items are treated as "already have it" and left out.
+
+function showDeliverySheet({ title, items }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/40 z-40 flex items-end justify-center pb-16';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'bg-white w-full max-w-2xl rounded-t-2xl p-4 max-h-[85vh] flex flex-col';
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center justify-between mb-1';
+  const titleEl = document.createElement('span');
+  titleEl.className = 'font-bold text-gray-800';
+  titleEl.textContent = 'Order for delivery';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '×';
+  closeBtn.className = 'text-gray-400 text-2xl leading-none';
+  closeBtn.onclick = () => overlay.remove();
+  header.appendChild(titleEl);
+  header.appendChild(closeBtn);
+  sheet.appendChild(header);
+
+  const sub = document.createElement('p');
+  sub.className = 'text-xs text-gray-400 mb-4';
+  sub.textContent = `${items.length} unchecked item${items.length !== 1 ? 's' : ''} will be sent to Instacart. You review the matches and check out there.`;
+  sheet.appendChild(sub);
+
+  const body = document.createElement('div');
+  body.className = 'overflow-y-auto flex-1 space-y-4';
+  sheet.appendChild(body);
+
+  const storeSection = document.createElement('div');
+  const storeLabel = document.createElement('div');
+  storeLabel.className = 'text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2';
+  storeLabel.textContent = 'Store';
+  storeSection.appendChild(storeLabel);
+  const storeDisplay = document.createElement('div');
+  storeSection.appendChild(storeDisplay);
+  body.appendChild(storeSection);
+
+  const goBtn = btn('Open in Instacart', 'primary');
+  goBtn.className += ' w-full mt-4';
+  sheet.appendChild(goBtn);
+
+  let retailer = getSavedRetailer();
+  if (retailer && !retailer.retailerKey) retailer = null; // stale shape
+
+  function renderStore() {
+    storeDisplay.innerHTML = '';
+    goBtn.disabled = !retailer;
+
+    if (retailer) {
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between text-sm';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'font-medium text-gray-800';
+      nameEl.textContent = retailer.name;
+      const changeBtn = document.createElement('button');
+      changeBtn.type = 'button';
+      changeBtn.textContent = 'Change';
+      changeBtn.className = 'text-xs text-green-600';
+      changeBtn.onclick = () => {
+        retailer = null;
+        renderStore();
+      };
+      row.appendChild(nameEl);
+      row.appendChild(changeBtn);
+      storeDisplay.appendChild(row);
+      return;
+    }
+
+    const searchRow = document.createElement('div');
+    searchRow.className = 'flex gap-2';
+    const zipInput = document.createElement('input');
+    zipInput.type = 'text';
+    zipInput.inputMode = 'numeric';
+    zipInput.placeholder = 'ZIP code';
+    zipInput.maxLength = 5;
+    zipInput.className = 'field flex-1';
+    zipInput.value = localStorage.getItem('krogerZip') || '';
+    const searchBtn = btn('Find stores', 'secondary');
+    searchBtn.className += ' shrink-0 text-sm';
+    const resultsList = document.createElement('div');
+    resultsList.className = 'space-y-1 mt-1';
+
+    async function doSearch() {
+      const zip = zipInput.value.trim();
+      if (!/^\d{5}$/.test(zip)) {
+        resultsList.innerHTML = '<p class="text-xs text-red-500">Enter a 5-digit ZIP.</p>';
+        return;
+      }
+      localStorage.setItem('krogerZip', zip);
+      searchBtn.disabled = true;
+      searchBtn.textContent = 'Searching…';
+      resultsList.innerHTML = '';
+      try {
+        const retailers = await fetchRetailers(zip);
+        if (retailers.length === 0) {
+          resultsList.innerHTML =
+            '<p class="text-xs text-gray-400">No Instacart stores deliver to that ZIP.</p>';
+          return;
+        }
+        for (const r of retailers) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className =
+            'w-full text-left text-sm px-3 py-2 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors';
+          b.textContent = r.name;
+          b.onclick = () => {
+            retailer = { retailerKey: r.retailer_key, name: r.name };
+            saveRetailer(retailer);
+            renderStore();
+          };
+          resultsList.appendChild(b);
+        }
+      } catch (e) {
+        const err = document.createElement('p');
+        err.className = 'text-xs text-red-500';
+        err.textContent = e.message || 'Could not load stores.';
+        resultsList.replaceChildren(err);
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Find stores';
+      }
+    }
+
+    searchBtn.onclick = doSearch;
+    zipInput.onkeydown = (e) => {
+      if (e.key === 'Enter') doSearch();
+    };
+    searchRow.appendChild(zipInput);
+    searchRow.appendChild(searchBtn);
+    storeDisplay.appendChild(searchRow);
+    storeDisplay.appendChild(resultsList);
+  }
+
+  goBtn.onclick = async () => {
+    if (!retailer) return;
+    goBtn.disabled = true;
+    goBtn.textContent = 'Building list…';
+    // Open the tab synchronously inside the click so mobile popup blockers
+    // allow it; point it at the list once Instacart returns the URL.
+    const tab = window.open('', '_blank');
+    if (tab) {
+      tab.opener = null;
+      try {
+        tab.document.write('<p style="font-family:sans-serif;padding:2rem">Opening Instacart…</p>');
+      } catch {
+        /* cross-origin or closed — ignore */
+      }
+    }
+    try {
+      const url = await createShoppingList({ title, items, retailerKey: retailer.retailerKey });
+      if (tab && !tab.closed) tab.location = url;
+      else window.location.assign(url);
+      overlay.remove();
+    } catch (e) {
+      if (tab && !tab.closed) tab.close();
+      toastError(e.message || 'Could not build the Instacart list.');
+      goBtn.disabled = false;
+      goBtn.textContent = 'Open in Instacart';
+    }
+  };
+
+  renderStore();
   overlay.appendChild(sheet);
   overlay.onclick = (e) => {
     if (e.target === overlay) overlay.remove();
@@ -1215,6 +1398,25 @@ export function renderGroceryList() {
       legend.innerHTML =
         'Sorted by aisle &middot; lowest available price &middot; <span class="text-green-600">green</span> = on sale';
       container.appendChild(legend);
+    }
+
+    // ── Delivery handoff ────────────────────────────────────
+    // Unchecked = still needed. Checked means it's in a physical cart or
+    // already at home — either way, not something to order.
+    if (!tripDone) {
+      const needed = shopRows
+        .filter((r) => !r.set.has(keyOf(r.item)))
+        .map(({ item }) => ({
+          name: item.name,
+          quantity: item.totalQty > 0 ? item.totalQty : parseQty(item.rawQty),
+          unit: item.unit || '',
+          preparation: item.preparation || '',
+        }));
+      const deliveryBtn = btn('🛒 Order for delivery', 'secondary');
+      deliveryBtn.className += ' w-full mb-4 text-sm';
+      deliveryBtn.onclick = () =>
+        showDeliverySheet({ title: `Groceries ${rangePill.textContent}`, items: needed });
+      container.appendChild(deliveryBtn);
     }
 
     // ── Trip complete: collapse the list into a done card ───

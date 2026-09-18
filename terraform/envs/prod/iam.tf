@@ -78,6 +78,7 @@ resource "aws_iam_role_policy" "noaws_logs_only" {
           "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-nutrition:*",
           "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-kroger:*",
           "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-share:*",
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/meal-planner-instacart:*",
         ]
       }
     ]
@@ -175,6 +176,7 @@ resource "aws_iam_role_policy" "github_deploy" {
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-share",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-plan",
           "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-feedback",
+          "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:meal-planner-instacart",
         ]
       }
     ]
