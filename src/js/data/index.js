@@ -1,18 +1,24 @@
 import { getIdToken, parseIdToken } from '../auth.js';
-import { API_BASE } from '../config.js';
 
-const BUCKET      = 'https://meals.jaetill.com';
-const SAVE_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/save';
-const IMPORT_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/import';
-const GROUPS_URL  = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/groups';
-const COOK_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/cook';
-const SHARE_URL   = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/share';
-const PLAN_URL    = 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com/prod/plan';
+const BUCKET = 'https://meals.jaetill.com';
+
+// In dev, the authenticated REST API is reached through the Vite dev-server
+// proxy (see vite.config.js) so requests are same-origin and CORS never applies.
+const REST_API = import.meta.env.DEV
+  ? '/awsapi'
+  : 'https://e2h43o5aje.execute-api.us-east-2.amazonaws.com';
+
+const SAVE_URL = `${REST_API}/prod/save`;
+const IMPORT_URL = `${REST_API}/prod/import`;
+const GROUPS_URL = `${REST_API}/prod/groups`;
+const COOK_URL = `${REST_API}/prod/cook`;
+const SHARE_URL = `${REST_API}/prod/share`;
+const PLAN_URL = `${REST_API}/prod/plan`;
 
 // ── Active group ──────────────────────────────────────────
 
 export let activeGroup = null; // { groupId, name, role }
-export let allGroups   = [];   // all groups the user belongs to
+export let allGroups = []; // all groups the user belongs to
 export let currentUsername = null;
 
 export async function loadActiveGroup() {
@@ -28,15 +34,15 @@ export async function loadActiveGroup() {
 
   if (groups.length > 0) {
     const savedId = localStorage.getItem('activeGroupId');
-    activeGroup   = groups.find(g => g.groupId === savedId) || groups[0];
+    activeGroup = groups.find((g) => g.groupId === savedId) || groups[0];
     return activeGroup;
   }
 
   // First time: create a default group, then migrate existing flat data
   const createRes = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'create', name: 'My Kitchen' }),
+    body: JSON.stringify({ action: 'create', name: 'My Kitchen' }),
   });
   if (!createRes.ok) throw new Error(`Group creation failed: ${createRes.status}`);
   const { group } = await createRes.json();
@@ -49,7 +55,7 @@ export async function loadActiveGroup() {
 }
 
 export async function switchGroup(groupId) {
-  const target = allGroups.find(g => g.groupId === groupId);
+  const target = allGroups.find((g) => g.groupId === groupId);
   if (!target) throw new Error('Group not found');
   activeGroup = target;
   localStorage.setItem('activeGroupId', groupId);
@@ -68,7 +74,9 @@ async function migrateToGroup(token) {
         saveJSON('meal-plans.json', plansData || []),
       ]);
     }
-  } catch { /* non-fatal — migration best-effort */ }
+  } catch {
+    /* non-fatal — migration best-effort */
+  }
 }
 
 // ── Read (public S3) ──────────────────────────────────────
@@ -92,13 +100,13 @@ async function fetchJSON(key) {
 
 async function saveJSON(key, data) {
   const token = getIdToken();
-  const body    = { key, data };
+  const body = { key, data };
   if (activeGroup) body.groupId = activeGroup.groupId;
 
   const res = await fetch(SAVE_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
 }
@@ -167,9 +175,9 @@ export async function saveRecipes(updated) {
 export async function importRecipeFromUrl(url) {
   const token = getIdToken();
   const res = await fetch(IMPORT_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ url }),
+    body: JSON.stringify({ url }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -184,9 +192,9 @@ export async function importRecipeFromUrl(url) {
 export async function createGroupInvite(groupId) {
   const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'invite', groupId }),
+    body: JSON.stringify({ action: 'invite', groupId }),
   });
   if (!res.ok) throw new Error(`Invite failed: ${res.status}`);
   return res.json(); // { code, expiresAt }
@@ -195,16 +203,16 @@ export async function createGroupInvite(groupId) {
 export async function joinGroup(code) {
   const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'join', code }),
+    body: JSON.stringify({ action: 'join', code }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Join failed: ${res.status}`);
   }
   const data = await res.json();
-  if (data.group && !allGroups.some(g => g.groupId === data.group.groupId)) {
+  if (data.group && !allGroups.some((g) => g.groupId === data.group.groupId)) {
     allGroups.push(data.group);
   }
   return data; // { group }
@@ -222,9 +230,9 @@ export async function fetchGroupMembers(groupId) {
 export async function shareRecipeByEmail(recipe, recipientEmail) {
   const token = getIdToken();
   const res = await fetch(SHARE_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ recipe, recipientEmail }),
+    body: JSON.stringify({ recipe, recipientEmail }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -236,9 +244,9 @@ export async function shareRecipeByEmail(recipe, recipientEmail) {
 export async function shareRecipe(recipe, targetUsername) {
   const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'share', targetUsername, recipe }),
+    body: JSON.stringify({ action: 'share', targetUsername, recipe }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -259,9 +267,9 @@ export async function acceptIncomingShare(shareId) {
   if (!activeGroup) throw new Error('No active group');
   const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'acceptShare', shareId, groupId: activeGroup.groupId }),
+    body: JSON.stringify({ action: 'acceptShare', shareId, groupId: activeGroup.groupId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -276,9 +284,9 @@ export async function acceptIncomingShare(shareId) {
 export async function dismissIncomingShare(shareId) {
   const token = getIdToken();
   const res = await fetch(GROUPS_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action: 'dismissShare', shareId }),
+    body: JSON.stringify({ action: 'dismissShare', shareId }),
   });
   if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`);
 }
@@ -288,12 +296,12 @@ export async function dismissIncomingShare(shareId) {
 // Returns { min, max? } in seconds, or null. max only set for range expressions like "7–8 minutes".
 export function parseDurationFromText(text) {
   if (!text) return null;
-  const rangeMin  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:minute|min)s?/i);
+  const rangeMin = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:minute|min)s?/i);
   const rangeHour = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:hour|hr)s?/i);
-  const rangeSec  = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:second|sec)s?/i);
-  if (rangeMin)  return { min: parseInt(rangeMin[1])  * 60,   max: parseInt(rangeMin[2])  * 60 };
+  const rangeSec = text.match(/(\d+)\s*(?:[-–]|to)\s*(\d+)\s*(?:second|sec)s?/i);
+  if (rangeMin) return { min: parseInt(rangeMin[1]) * 60, max: parseInt(rangeMin[2]) * 60 };
   if (rangeHour) return { min: parseInt(rangeHour[1]) * 3600, max: parseInt(rangeHour[2]) * 3600 };
-  if (rangeSec)  return { min: parseInt(rangeSec[1]),          max: parseInt(rangeSec[2]) };
+  if (rangeSec) return { min: parseInt(rangeSec[1]), max: parseInt(rangeSec[2]) };
   const hourMin = text.match(/(\d+)\s*(?:hour|hr)s?\s*(?:and\s*)?(\d+)\s*(?:minute|min)s?/i);
   if (hourMin) return { min: parseInt(hourMin[1]) * 3600 + parseInt(hourMin[2]) * 60 };
   const hour = text.match(/\b(?:for|about)\s+(\d+)\s*(?:hour|hr)s?|(\d+)\s*(?:hour|hr)s?/i);
@@ -319,18 +327,18 @@ export function formatDuration(seconds) {
 async function cookPost(action, extra = {}) {
   const token = getIdToken();
   const res = await fetch(COOK_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token },
-    body:    JSON.stringify({ action, ...extra }),
+    body: JSON.stringify({ action, ...extra }),
   });
   if (!res.ok) throw new Error(`Cook session error: ${res.status}`);
   return res.json();
 }
 
-export const startCookSession   = (recipe) => cookPost('start', { recipe });
-export const advanceCookSession = ()       => cookPost('advance');
-export const backCookSession    = ()       => cookPost('back');
-export const getCookSession     = ()       => cookPost('get', {});
+export const startCookSession = (recipe) => cookPost('start', { recipe });
+export const advanceCookSession = () => cookPost('advance');
+export const backCookSession = () => cookPost('back');
+export const getCookSession = () => cookPost('get', {});
 
 // ── AI meal plan generation ──────────────────────────────
 
@@ -339,9 +347,9 @@ async function planPost(body) {
   let res;
   try {
     res = await fetch(PLAN_URL, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: token },
-      body:    JSON.stringify(body),
+      body: JSON.stringify(body),
     });
   } catch (fetchErr) {
     throw new Error(`Network error: ${fetchErr.message}. Check browser console for details.`);
@@ -349,7 +357,11 @@ async function planPost(body) {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     let errMsg;
-    try { errMsg = JSON.parse(text).error || JSON.parse(text).message; } catch {}
+    try {
+      errMsg = JSON.parse(text).error || JSON.parse(text).message;
+    } catch {
+      /* non-JSON body — fall through to generic message */
+    }
     throw new Error(errMsg || `Plan request failed: ${res.status} — ${text.slice(0, 200)}`);
   }
   return res.json();
@@ -382,42 +394,42 @@ export function refineMealPlan({ currentPlan, refinement }) {
 
 export function newRecipe(overrides = {}) {
   return {
-    id:          crypto.randomUUID(),
-    name:        '',
+    id: crypto.randomUUID(),
+    name: '',
     description: '',
-    servings:    4,
-    prepTime:    '',
-    cookTime:    '',
-    source:      '',
-    photo:       null,
-    rating:      null,
-    tags:        [],
+    servings: 4,
+    prepTime: '',
+    cookTime: '',
+    source: '',
+    photo: null,
+    rating: null,
+    tags: [],
     ingredients: [],
-    directions:  [],
-    notes:       '',
-    createdAt:   Date.now(),
+    directions: [],
+    notes: '',
+    createdAt: Date.now(),
     ...overrides,
   };
 }
 
 export function newIngredient(overrides = {}) {
   return {
-    id:          crypto.randomUUID(),
-    quantity:    '',
-    unit:        '',
-    name:        '',
+    id: crypto.randomUUID(),
+    quantity: '',
+    unit: '',
+    name: '',
     preparation: '',
-    section:     '',
+    section: '',
     packageSize: '',
-    calories:      null,
-    protein:       null,
-    fat:           null,
-    saturatedFat:  null,
-    cholesterol:   null,
-    sodium:        null,
-    carbs:         null,
-    fiber:         null,
-    sugar:         null,
+    calories: null,
+    protein: null,
+    fat: null,
+    saturatedFat: null,
+    cholesterol: null,
+    sodium: null,
+    carbs: null,
+    fiber: null,
+    sugar: null,
     ...overrides,
   };
 }

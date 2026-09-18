@@ -114,7 +114,9 @@ components/
   renderCookMode.js        — fullscreen step-by-step cook UI; polls S3 every 5s
                              to sync with Alexa; wake lock; timer badges
   renderMealPlan.js        — weekly meal plan grid + recipe picker
-  renderGroceryList.js     — ingredient aggregation, Kroger pricing, staples
+  renderGroceryList.js     — ingredient aggregation, Kroger pricing, staples;
+                             checked items linger 0.5s then move to bottom
+                             "In cart" section; done card when all gathered
   renderGroupSettings.js   — group switcher, invite codes, member list
 ui/elements.js             — btn(), field() helpers
 ui/toast.js                — toast notifications
