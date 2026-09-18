@@ -175,3 +175,27 @@ resource "aws_lambda_function" "feedback" {
     ignore_changes = [filename, source_code_hash]
   }
 }
+resource "aws_lambda_function" "instacart" {
+  function_name = "meal-planner-instacart"
+  role          = aws_iam_role.noaws.arn
+  handler       = "instacart.handler"
+  runtime       = "nodejs22.x"
+  architectures = ["x86_64"]
+  memory_size   = 128
+  timeout       = 10
+
+  filename = "${path.module}/placeholder.zip"
+
+  environment {
+    variables = merge(local.observability_env, {
+      # connect.dev.instacart.tools while on a development key;
+      # connect.instacart.com once Instacart grants production access.
+      INSTACART_HOST = "connect.dev.instacart.tools"
+      LINKBACK_URL   = "https://meals.jaetill.com"
+    })
+  }
+
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+}

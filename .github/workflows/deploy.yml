@@ -43,7 +43,7 @@ jobs:
           aws-region: us-east-2
       - name: Ensure Lambda runtimes are nodejs22.x
         run: |
-          for fn in MealPlannerSave meal-planner-alexa meal-planner-groups meal-planner-nutrition meal-planner-kroger meal-planner-share meal-planner-plan meal-planner-feedback; do
+          for fn in MealPlannerSave meal-planner-alexa meal-planner-groups meal-planner-nutrition meal-planner-kroger meal-planner-share meal-planner-plan meal-planner-feedback meal-planner-instacart; do
             current=$(aws lambda get-function-configuration --function-name "$fn" --region us-east-2 --query 'Runtime' --output text)
             if [ "$current" != "nodejs22.x" ]; then
               echo "Updating $fn from $current to nodejs22.x"
@@ -138,6 +138,15 @@ jobs:
           aws lambda update-function-code \
             --function-name meal-planner-feedback \
             --zip-file fileb://feedback.zip \
+            --region us-east-2
+      - name: Deploy instacart Lambda
+        run: |
+          pushd lambda
+          zip -r ../instacart.zip instacart.js lib node_modules
+          popd
+          aws lambda update-function-code \
+            --function-name meal-planner-instacart \
+            --zip-file fileb://instacart.zip \
             --region us-east-2
       - name: Deploy plan Lambda
         run: |

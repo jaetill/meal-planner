@@ -48,6 +48,7 @@ All POST routes require the Cognito authorizer. Claims available in Lambda as
 | GET /products | meal-planner-kroger | None | Kroger product/price search |
 | POST /share | meal-planner-share | Cognito | Email recipe as Schema.org JSON via Postmark |
 | POST /plan | meal-planner-plan | Cognito | AI-assisted meal plan generation and refinement |
+| POST /instacart | meal-planner-instacart | Cognito JWT (HTTP API `dmtezcygeb`) | Instacart retailer lookup + pre-filled shopping-list URL for delivery ordering |
 
 ## Lambda files (`lambda/`)
 Each file is bundled with `lambda/lib/` and `lambda/node_modules/` into a zip by
@@ -67,6 +68,7 @@ Each file is bundled with `lambda/lib/` and `lambda/node_modules/` into a zip by
 | `alexa.js` | `meal-planner-alexa` | env: `ALEXA_USERNAME` (= Cognito username, currently `jaetill`) |
 | `share.js` | `meal-planner-share` | SM: `meal-planner/secrets` (`POSTMARK_API_KEY`); env: `FROM_EMAIL` |
 | `plan.js` | `meal-planner-plan` | SM: `meal-planner/secrets` (`ANTHROPIC_API_KEY`) |
+| `instacart.js` | `meal-planner-instacart` | SM: `meal-planner/secrets` (`INSTACART_API_KEY`); env: `INSTACART_HOST`, `LINKBACK_URL` |
 
 **Shared Sentry env vars (all Lambdas):** `SENTRY_DSN`, `DEPLOY_ENV`, `RELEASE_VERSION`,
 `LOG_LEVEL` — set out-of-band via `aws lambda update-function-configuration`. When
@@ -89,6 +91,14 @@ cook-sessions/{userId}.json          — active cook session (read by Alexa skil
 photos/{recipeId}                    — recipe photo (uploaded during URL import)
 ```
 
+## Two API Gateways
+- **REST API `e2h43o5aje`** (`/prod/...`): the original authenticated routes, Cognito
+  authorizer `o0c2k9`, raw ID token in `Authorization`.
+- **HTTP API `dmtezcygeb`**: public GET routes (kroger, nutrition, feedback) plus
+  `POST /instacart`, which uses a Cognito **JWT authorizer** (`Authorization: Bearer <id token>`,
+  claims at `event.requestContext.authorizer.jwt.claims`). New authenticated routes
+  should go here — a third of the Terraform of a REST resource. See ADR-0031.
+
 ## Frontend data flow
 - **Reads**: `fetch('https://meals.jaetill.com/{s3-key}')` — always CloudFront,
   never direct S3 (bucket is private). Use `cache: 'no-cache'` on all fetches.
@@ -107,6 +117,7 @@ config.js                  — API_BASE, Cognito Hosted UI config
 data/index.js              — all data access (load/save/share), URL constants
 data/nutrition.js          — nutrition fetch + per-serving calc
 data/kroger.js             — Kroger store/product fetching
+data/instacart.js          — Instacart retailer lookup + shopping-list handoff (saved retailer in localStorage)
 components/
   renderRecipes.js         — recipe list + search + incoming shares banner
   renderRecipeView.js      — recipe detail, share sheet (username + email tabs)
@@ -117,6 +128,8 @@ components/
   renderGroceryList.js     — ingredient aggregation, Kroger pricing, staples;
                              checked items linger 0.5s then move to bottom
                              "In cart" section; done card when all gathered
+                             "Order for delivery" sends unchecked items to Instacart
+                             (checked = in physical cart OR already at home)
   renderGroupSettings.js   — group switcher, invite codes, member list
 ui/elements.js             — btn(), field() helpers
 ui/toast.js                — toast notifications

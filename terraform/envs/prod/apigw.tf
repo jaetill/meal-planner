@@ -651,3 +651,50 @@ resource "aws_lambda_permission" "apigw_feedback" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/feedback"
 }
+# ── instacart endpoint (HTTP API, Cognito JWT authorizer) ─────────────────
+# First authenticated route on the HTTP API. The JWT authorizer validates the
+# Cognito ID token (Bearer) at the gateway; the Lambda still checks the
+# meal-planner-users group claim.
+
+resource "aws_apigatewayv2_authorizer" "mp_http_cognito" {
+  api_id           = aws_apigatewayv2_api.mp_http.id
+  name             = "meal-planner-cognito-jwt"
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    issuer   = "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_xneeJzaDJ"
+    audience = ["2g8kng7thvouq1ami8cm336gbb"]
+  }
+}
+
+resource "aws_apigatewayv2_integration" "mp_http_instacart" {
+  api_id                 = aws_apigatewayv2_api.mp_http.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  integration_uri        = aws_lambda_function.instacart.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "mp_http_instacart_post" {
+  api_id             = aws_apigatewayv2_api.mp_http.id
+  route_key          = "POST /instacart"
+  target             = "integrations/${aws_apigatewayv2_integration.mp_http_instacart.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.mp_http_cognito.id
+}
+
+# CORS preflight carries no token, so OPTIONS stays unauthenticated.
+resource "aws_apigatewayv2_route" "mp_http_instacart_options" {
+  api_id    = aws_apigatewayv2_api.mp_http.id
+  route_key = "OPTIONS /instacart"
+  target    = "integrations/${aws_apigatewayv2_integration.mp_http_instacart.id}"
+}
+
+resource "aws_lambda_permission" "apigw_instacart" {
+  statement_id  = "apigw-instacart"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.instacart.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "arn:aws:execute-api:${var.aws_region}:${var.aws_account_id}:${aws_apigatewayv2_api.mp_http.id}/*/*/instacart"
+}

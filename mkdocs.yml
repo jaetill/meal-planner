@@ -75,6 +75,7 @@ nav:
       - 'ADR-0012 — User feedback': adr/0012-user-feedback.md
       - 'ADR-0013 — Grafana CloudWatch pull': adr/0013-grafana-cloudwatch-pull.md
       - 'ADR-0014 — Lambda Sentry observability': adr/0014-lambda-sentry-observability.md
+      - 'ADR-0031 — Instacart delivery handoff': adr/0031-instacart-delivery-handoff.md
       - 'ADR template': adr/template.md
   - Runbooks:
       - Overview: runbooks/index.md

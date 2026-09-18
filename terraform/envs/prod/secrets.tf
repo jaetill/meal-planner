@@ -79,3 +79,12 @@ resource "aws_secretsmanager_secret" "github_token" {
 
 # NOTE: aws_cloudwatch_log_group for feedback omitted - jaetill-dev lacks logs:CreateLogGroup.
 # Lambda auto-creates the log group on first invocation; can be imported later.
+
+resource "aws_cloudwatch_log_group" "instacart" {
+  name              = "/aws/lambda/meal-planner-instacart"
+  retention_in_days = 0
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
+}
